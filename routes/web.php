@@ -35,6 +35,10 @@ Route::get('/dashboard', function () {
     abort_unless(in_array($currentView, ['overview', 'attendance', 'members', 'reports'], true), 404);
     $memberCount = User::where('role', 'member')->count();
     $members = User::where('role', 'member')->latest()->paginate(10)->withQueryString();
+    $users = User::orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 WHEN 'member' THEN 3 ELSE 4 END")
+        ->latest()
+        ->paginate(7)
+        ->withQueryString();
     $allSessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->get();
     $sessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->paginate(3)->withQueryString();
     $todaySessions = $allSessions->filter(fn ($session) => $session->started_at->isToday())->take(5);
@@ -58,6 +62,7 @@ Route::get('/dashboard', function () {
     return view('welcome', [
         'currentView' => $currentView, 
         'members' => $members, 
+        'users' => $users,
         'memberCount' => $memberCount, 
         'sessions' => $sessions, 
         'todaySessions' => $todaySessions, 
@@ -76,7 +81,7 @@ Route::get('/dashboard', function () {
         'reportEnd' => $reportData['end'], 
         'selectedReportSession' => $reportData['selectedSession'], 
         'reportSessions' => $reportSessions, 
-        'pendingUsers' => $user->isSuperAdmin() ? User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get() : collect(), 
+        'pendingUsers' => $user->isSuperAdmin() ? User::whereIn('role', ['leader', 'admin'])->where('approval_status', 'pending')->latest()->get() : collect(), 
         'activeSession' => AttendanceSession::where(function ($query) {
             $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
         })->latest('started_at')->first(),
@@ -90,7 +95,7 @@ Route::get('/leader/history', function () {
     $user = Auth::user();
     abort_unless($user?->role === 'leader' && $user->isApproved(), 403);
 
-    return view('leader-history', ['sessions' => AttendanceSession::with('records.member')->withCount('records')->where('started_by', $user->id)->latest('started_at')->paginate(3)->withQueryString()]);
+    return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->where('started_by', $user->id)->latest('started_at')->paginate(3)->withQueryString()]);
 })->middleware('auth')->name('leader.history');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -100,14 +105,19 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+    Route::get('/settings', function () {
+        /** @var User|null $user */
+        $user = Auth::user();
+        abort_unless($user?->isSuperAdmin(), 403);
+        return app(SettingsController::class)->index();
+    })->name('settings');
     Route::get('/admin/reports/pdf', [ReportController::class, 'exportPdf'])->name('admin.reports.pdf');
     Route::get('/admin/reports/word', [ReportController::class, 'exportWord'])->name('admin.reports.word');
     Route::get('/admin/approvals', function () {
         /** @var User $user */
         $user = Auth::user();
         abort_unless($user->isSuperAdmin(), 403);
-        return view('approvals', ['pendingUsers' => User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get()]);
+        return view('approvals', ['pendingUsers' => User::whereIn('role', ['leader', 'admin'])->where('approval_status', 'pending')->latest()->get()]);
     })->name('admin.approvals');
     Route::post('/admin/approvals/{user}', function (Request $request, User $user) {
         /** @var User $admin */
@@ -129,6 +139,16 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/attendance/manual-check-ins', [AttendanceController::class, 'manualCheckIn']);
     Route::post('/members', [AttendanceController::class, 'storeMember']);
     Route::delete('/members/{member}', [AttendanceController::class, 'destroyMember']);
-    Route::post('/settings/gathering-types', [SettingsController::class, 'updateGatheringTypes']);
-    Route::post('/settings/membership-groups', [SettingsController::class, 'updateMembershipGroups']);
+    Route::post('/settings/gathering-types', function (Request $request) {
+        /** @var User|null $user */
+        $user = $request->user();
+        abort_unless($user?->isSuperAdmin(), 403);
+        return app(SettingsController::class)->updateGatheringTypes($request);
+    });
+    Route::post('/settings/membership-groups', function (Request $request) {
+        /** @var User|null $user */
+        $user = $request->user();
+        abort_unless($user?->isSuperAdmin(), 403);
+        return app(SettingsController::class)->updateMembershipGroups($request);
+    });
 });

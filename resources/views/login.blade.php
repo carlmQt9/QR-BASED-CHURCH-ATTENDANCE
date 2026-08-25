@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Sign in / Gather</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -21,7 +22,7 @@
                 <form action="{{ route('login') }}" method="POST">
                     @csrf
                     <label>Email address<input type="email" name="email" value="{{ old('email') }}" placeholder="you@church.org" autocomplete="email" required></label>
-                    <label>Password<div class="password-field"><input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password">Show</button></div></label>
+                    <label>Password<div class="password-field"><input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></div></label>
                     <div class="form-options"><label class="check-label"><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="#">Forgot password?</a></div>
                     <button class="auth-button" type="submit">Sign in <span>↗</span></button>
                 </form>

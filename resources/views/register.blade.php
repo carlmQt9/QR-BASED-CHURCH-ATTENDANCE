@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Create account / Gather</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -21,9 +22,9 @@
                     @csrf
                     <label>Full name<input type="text" name="name" value="{{ old('name') }}" placeholder="Jordan Davis" autocomplete="name" required></label>
                     <label>Church email<input type="email" name="email" value="{{ old('email') }}" placeholder="you@church.org" autocomplete="email" required></label>
-                    <label>Your role<select name="role"><option value="leader">Attendance leader</option></select></label>
-                    <label>Create password<div class="password-field"><input type="password" name="password" placeholder="At least 8 characters" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" aria-label="Show password">Show</button></div></label>
-                    <label>Confirm password<input type="password" name="password_confirmation" placeholder="Repeat your password" autocomplete="new-password" required></label>
+                    <label>Your role<select name="role"><option value="leader">Attendance leader</option><option value="admin">Super admin</option></select></label>
+                    <label>Create password<div class="password-field"><input type="password" name="password" placeholder="At least 8 characters" minlength="8" autocomplete="new-password" required><button type="button" class="password-toggle" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></div></label>
+                    <label>Confirm password<div class="password-field"><input type="password" name="password_confirmation" placeholder="Repeat your password" autocomplete="new-password" required><button type="button" class="password-toggle" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></div></label>
                     <label class="check-label terms-check"><input type="checkbox" required> <span>I agree to the <a href="#">terms of service</a> and privacy policy.</span></label>
                     <button class="auth-button" type="submit">Create account <span>↗</span></button>
                 </form>

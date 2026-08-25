@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Leader dashboard / Gather</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -14,7 +15,7 @@
     <aside class="sidebar" aria-label="Leader navigation">
         <div class="brand"><div class="brand-mark"><span></span><span></span><span></span><span></span></div><div><strong>GATHER</strong><small>Church attendance</small></div></div>
         <div class="workspace-label">Leader workspace</div>
-        <nav class="nav-list"><a class="nav-item active" href="{{ route('dashboard') }}"><span class="icon">⌂</span>My sessions</a><a class="nav-item" href="{{ route('leader.history') }}"><span class="icon">▤</span>Session history</a><a class="nav-item" href="{{ route('settings') }}"><span class="icon">⚙</span>Settings</a></nav>
+        <nav class="nav-list"><a class="nav-item active" href="{{ route('dashboard') }}"><span class="icon">⌂</span>My sessions</a><a class="nav-item" href="{{ route('leader.history') }}"><span class="icon">▤</span>Session history</a></nav>
         <div class="sidebar-bottom"><form class="logout-form" action="{{ route('logout') }}" method="POST">@csrf<button class="nav-item" style="width:100%" type="submit"><span class="icon">↪</span>Log out</button></form><div class="user-chip"><div class="avatar">{{ collect(explode(' ', auth()->user()->name))->map(fn ($part) => substr($part, 0, 1))->join('') }}</div><div><strong>{{ auth()->user()->name }}</strong><small>Attendance leader</small></div></div></div>
     </aside>
     <main class="main-content">

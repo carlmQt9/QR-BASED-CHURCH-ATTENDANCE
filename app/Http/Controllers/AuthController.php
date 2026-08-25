@@ -41,7 +41,7 @@ class AuthController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
-        $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'unique:users,email'], 'role' => ['required', 'in:leader'], 'password' => ['required', 'confirmed', 'min:8']]);
+        $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'unique:users,email'], 'role' => ['required', 'in:leader,admin'], 'password' => ['required', 'confirmed', 'min:8']]);
         User::create([...$validated, 'approval_status' => 'pending']);
 
         return redirect()->route('login')->with('status', 'Account created. A super admin must approve your access before you can sign in.');

@@ -788,8 +788,6 @@ function renderDashboardData() {
     const memberCount = document.body.dataset.memberCount;
     if (memberCount) {
         document.querySelector('.stat-card:nth-child(3) > strong')?.replaceChildren(document.createTextNode(memberCount));
-        const memberLabel = document.querySelector('#member-count');
-        if (memberLabel) memberLabel.textContent = `${memberCount} active members`;
     }
     const trend = data.trend || [];
     const maximum = Math.max(1, ...trend.map(day => Number(day.count) || 0));
@@ -813,6 +811,20 @@ function renderDashboardData() {
     }
 }
 renderDashboardData();
+
+const userChip = document.querySelector('.user-chip');
+const userName = userChip?.querySelector('strong')?.textContent.trim();
+if (userChip && userName) {
+    const userAvatar = userChip.querySelector('.avatar');
+    if (userAvatar) userAvatar.textContent = userName.split(/\s+/).map(part => part[0]).join('').toUpperCase();
+    const moreIcon = userChip.querySelector('.more');
+    if (moreIcon) {
+        moreIcon.replaceChildren();
+        moreIcon.setAttribute('aria-label', 'More user options');
+        moreIcon.setAttribute('title', 'More user options');
+        moreIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>';
+    }
+}
 
 async function refreshAdminDashboard() {
     if (!document.body.classList.contains('admin-dashboard')) return;
@@ -868,13 +880,21 @@ document.querySelector('[data-end-session]')?.addEventListener('click', e => {
     openEndSessionConfirm(e.currentTarget);
 });
 
-document.querySelectorAll('.password-toggle').forEach(btn =>
+document.querySelectorAll('.password-toggle').forEach(btn => {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.5 16.5 0 0 1-3.2 3.8M6.1 6.1C3.7 7.8 2.5 12 2.5 12s3.5 6 9.5 6c1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
     btn.addEventListener('click', () => {
         const inp = btn.parentElement.querySelector('input');
         inp.type = inp.type === 'password' ? 'text' : 'password';
-        btn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
-    })
-);
+        const isVisible = inp.type === 'text';
+        const action = isVisible ? 'Hide' : 'Show';
+        btn.setAttribute('aria-label', `${action} password`);
+        btn.setAttribute('title', `${action} password`);
+        btn.setAttribute('aria-pressed', String(isVisible));
+        btn.innerHTML = isVisible
+            ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>'
+                : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16.5 16.5 0 0 1-3.2 3.8M6.1 6.1C3.7 7.8 2.5 12 2.5 12s3.5 6 9.5 6c1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 9.9a3 3 0 0 1 4.2 4.2"/></svg>';
+            });
+});
 
 // ─── Logout modal ──────────────────────────────────────────────────────────────
 let logoutForm, logoutModal;
