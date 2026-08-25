@@ -163,9 +163,16 @@ document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEv
 	closeModal(scannerModal);
 	closeModal(memberModal);
 	closeModal(qrViewModal);
+	closeModal(approvalsModal);
 	clearInterval(scanTimer);
 	stopCamera();
 }));
+document.addEventListener('click', (event) => {
+	const closeButton = event.target.closest('#approvals-modal [data-close-modal]');
+	if (!closeButton) return;
+	event.preventDefault();
+	closeModal(approvalsModal);
+});
 document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.addEventListener('click', (event) => {
 	if (event.target === backdrop) {
 		closeModal(backdrop);
@@ -245,6 +252,29 @@ document.querySelectorAll('.password-toggle').forEach((button) => button.addEven
 	const input = button.parentElement.querySelector('input');
 	input.type = input.type === 'password' ? 'text' : 'password';
 	button.textContent = input.type === 'password' ? 'Show' : 'Hide';
+}));
+
+let logoutForm;
+let logoutModal;
+
+function openLogoutModal(form) {
+	logoutForm = form;
+	if (!logoutModal) {
+		logoutModal = document.createElement('div');
+		logoutModal.className = 'modal-backdrop';
+		logoutModal.innerHTML = '<section class="modal logout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title"><button class="modal-close" type="button" aria-label="Close logout confirmation">×</button><span class="section-kicker">Secure session</span><h2 id="logout-title">Log out of Gather?</h2><p class="muted">Your session will end on this device.</p><div class="modal-footer"><button class="button button-light logout-cancel" type="button">Cancel</button><button class="button button-dark logout-continue" type="button">Log out</button></div></section>';
+		document.body.append(logoutModal);
+		logoutModal.querySelector('.modal-close').addEventListener('click', () => closeModal(logoutModal));
+		logoutModal.querySelector('.logout-cancel').addEventListener('click', () => closeModal(logoutModal));
+		logoutModal.querySelector('.logout-continue').addEventListener('click', () => logoutForm.submit());
+		logoutModal.addEventListener('click', (event) => { if (event.target === logoutModal) closeModal(logoutModal); });
+	}
+	openModal(logoutModal);
+}
+
+document.querySelectorAll('.logout-form').forEach((form) => form.addEventListener('submit', (event) => {
+	event.preventDefault();
+	openLogoutModal(form);
 }));
 
 document.querySelectorAll('[data-duration]').forEach((button) => button.addEventListener('click', () => {

@@ -16,7 +16,7 @@
         <section class="auth-panel">
             <div class="auth-panel-top"><span>Welcome back</span><span class="secure-label">⌁ Secure access</span></div>
             <div class="auth-form-wrap"><span class="section-kicker">Administrator / Leader</span><h2>Sign in to Gather</h2><p class="form-intro">Access your church attendance workspace.</p>
-                @if (session('status')) <p style="color:#5e875f;font-size:11px;line-height:1.5">{{ session('status') }}</p> @endif
+                @if (session('status')) <div class="auth-toast" role="status"><span>✓</span>{{ session('status') }}</div> @endif
                 @if ($errors->any()) <p style="color:#a05a5a;font-size:11px;line-height:1.5">{{ $errors->first() }}</p> @endif
                 <form action="{{ route('login') }}" method="POST">
                     @csrf
