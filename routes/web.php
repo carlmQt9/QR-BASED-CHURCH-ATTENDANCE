@@ -47,7 +47,7 @@ Route::get('/dashboard', function () {
     $reportData = app(ReportController::class)->reportData(request());
     $reportSessions = AttendanceSession::query()->latest('started_at')->get(['id', 'name', 'type']);
     $dashboardData = ['trend' => $attendanceTrend, 'todayCount' => $attendanceCount, 'memberCount' => $memberCount, 'sessions' => $todaySessions->map(fn ($session) => ['time' => $session->started_at->format('h:i A'), 'name' => $session->name, 'location' => $session->location ?: 'Main campus', 'type' => $session->type, 'count' => $session->records->count()]), 'checkIns' => $recentCheckIns->map(fn ($record) => ['name' => $record->member->name, 'session' => $record->session->name, 'time' => $record->checked_in_at->format('h:i A')])];
-    return view('welcome', ['currentView' => $currentView, 'members' => $members, 'memberCount' => $memberCount, 'sessions' => $sessions, 'todaySessions' => $todaySessions, 'recentCheckIns' => $recentCheckIns, 'attendanceTrend' => $attendanceTrend, 'dashboardData' => $dashboardData, 'attendanceCount' => $attendanceCount, 'weeklyAverage' => $weeklyAverage, 'checkinRate' => $memberCount ? round(($attendanceCount / $memberCount) * 100) : 0, 'monthlyCheckins' => $monthlyCheckins, 'yearlyCheckins' => $yearlyCheckins, 'returningRate' => $returningRate, 'reportRecords' => $reportData['records'], 'reportPeriod' => $reportData['period'], 'reportStart' => $reportData['start'], 'reportEnd' => $reportData['end'], 'selectedReportSession' => $reportData['selectedSession'], 'reportSessions' => $reportSessions, 'pendingUsers' => $user->isSuperAdmin() ? User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get() : collect(), 'activeSession' => AttendanceSession::where(function ($query) {
+    return view('welcome', ['currentView' => $currentView, 'members' => $members, 'memberCount' => $memberCount, 'sessions' => $sessions, 'todaySessions' => $todaySessions, 'recentCheckIns' => $recentCheckIns, 'attendanceTrend' => $attendanceTrend, 'dashboardData' => $dashboardData, 'attendanceCount' => $attendanceCount, 'weeklyAverage' => $weeklyAverage, 'checkinRate' => $memberCount ? round(($attendanceCount / $memberCount) * 100) : 0, 'monthlyCheckins' => $monthlyCheckins, 'yearlyCheckins' => $yearlyCheckins, 'returningRate' => $returningRate, 'reportRecords' => $reportData['paginatedRecords'], 'reportPeriod' => $reportData['period'], 'reportStart' => $reportData['start'], 'reportEnd' => $reportData['end'], 'selectedReportSession' => $reportData['selectedSession'], 'reportSessions' => $reportSessions, 'pendingUsers' => $user->isSuperAdmin() ? User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get() : collect(), 'activeSession' => AttendanceSession::where(function ($query) {
         $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
     })->latest('started_at')->first()]);
 })->middleware('auth')->name('dashboard');
@@ -57,7 +57,7 @@ Route::get('/leader/history', function () {
     $user = Auth::user();
     abort_unless($user?->role === 'leader' && $user->isApproved(), 403);
 
-    return view('leader-history', ['sessions' => AttendanceSession::with('records.member')->withCount('records')->where('started_by', $user->id)->latest('started_at')->paginate(5)->withQueryString()]);
+    return view('leader-history', ['sessions' => AttendanceSession::with('records.member')->withCount('records')->where('started_by', $user->id)->latest('started_at')->paginate(3)->withQueryString()]);
 })->middleware('auth')->name('leader.history');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function () {
 
 Route::prefix('api')->middleware('auth')->group(function () {
     Route::get('/attendance/dashboard', [AttendanceController::class, 'dashboard']);
+    Route::get('/admin/dashboard', [AttendanceController::class, 'adminDashboard']);
     Route::post('/attendance/sessions', [AttendanceController::class, 'start']);
     Route::post('/attendance/sessions/{session}/end', [AttendanceController::class, 'end']);
     Route::post('/attendance/check-ins', [AttendanceController::class, 'checkIn']);

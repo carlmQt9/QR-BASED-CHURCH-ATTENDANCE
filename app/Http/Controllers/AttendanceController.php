@@ -28,6 +28,29 @@ class AttendanceController extends Controller
         ]);
     }
 
+    public function adminDashboard(): JsonResponse
+    {
+        abort_unless(request()->user()?->isSuperAdmin(), 403);
+        $todayCount = AttendanceRecord::whereDate('checked_in_at', today())->count();
+        $memberCount = User::where('role', 'member')->count();
+        $sessions = AttendanceSession::withCount('records')->whereDate('started_at', today())->latest('started_at')->limit(5)->get();
+        $records = AttendanceRecord::with(['member:id,name', 'session:id,name'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(10)->get();
+        $trendRecords = AttendanceRecord::whereBetween('checked_in_at', [now()->subDays(6)->startOfDay(), now()->endOfDay()])->get();
+        $trend = collect(range(0, 6))->map(function ($index) use ($trendRecords) {
+            $date = now()->subDays(6 - $index);
+            return ['label' => $date->format('D'), 'count' => $trendRecords->filter(fn ($record) => $record->checked_in_at->isSameDay($date))->count()];
+        });
+
+        return response()->json([
+            'today_count' => $todayCount,
+            'member_count' => $memberCount,
+            'checkin_rate' => $memberCount ? round(($todayCount / $memberCount) * 100) : 0,
+            'trend' => $trend,
+            'sessions' => $sessions->map(fn ($session) => ['time' => $session->started_at->format('h:i A'), 'name' => $session->name, 'location' => $session->location ?: 'Main campus', 'type' => $session->type, 'count' => $session->records_count]),
+            'recent_check_ins' => $records,
+        ]);
+    }
+
     public function start(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'type' => ['required', 'string', 'max:80'], 'location' => ['nullable', 'string', 'max:120'], 'started_at' => ['nullable', 'date'], 'duration_minutes' => ['required', 'integer', 'min:1', 'max:720']]);

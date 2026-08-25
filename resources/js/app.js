@@ -7,6 +7,8 @@ const scannerModal   = document.querySelector('#scanner-modal');
 const memberModal    = document.querySelector('#member-modal');
 const approvalsModal = document.querySelector('#approvals-modal');
 const qrViewModal    = document.querySelector('#qr-view-modal');
+const reportDetailsModal = document.querySelector('#report-details-modal');
+let pendingReportUrl = null;
 
 // ─── Scanner state ─────────────────────────────────────────────────────────────
 let video    = null;
@@ -481,6 +483,12 @@ const openModal  = m => { if (m) { m.classList.add('open');    m.setAttribute('a
 const closeModal = m => { if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true');  } };
 
 // ─── Open scanner ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.service-panel [data-open-scanner]').forEach(btn => {
+    btn.removeAttribute('data-open-scanner');
+    btn.dataset.viewLink = 'attendance';
+    btn.type = 'button';
+});
+
 document.querySelectorAll('[data-open-scanner]').forEach(btn =>
     btn.addEventListener('click', async () => {
         openModal(scannerModal);
@@ -493,11 +501,29 @@ document.querySelectorAll('[data-open-member]').forEach(btn =>
     btn.addEventListener('click', () => openModal(memberModal))
 );
 
+document.addEventListener('click', event => {
+    const link = event.target.closest('.report-actions a');
+    if (!link) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pendingReportUrl = new URL(link.href, window.location.origin);
+    openModal(reportDetailsModal);
+});
+document.querySelector('#continue-report-download')?.addEventListener('click', () => {
+    const name = document.querySelector('#report-church-name')?.value.trim();
+    const location = document.querySelector('#report-church-location')?.value.trim();
+    if (!name || !location || !pendingReportUrl) return;
+    pendingReportUrl.searchParams.set('church_name', name);
+    pendingReportUrl.searchParams.set('church_location', location);
+    closeModal(reportDetailsModal);
+    window.location.href = pendingReportUrl.toString();
+});
+
 // ─── Close modals ──────────────────────────────────────────────────────────────
 document.querySelectorAll('[data-close-modal]').forEach(btn =>
     btn.addEventListener('click', () => {
         closeModal(scannerModal); closeModal(memberModal);
-        closeModal(qrViewModal);  closeModal(approvalsModal);
+        closeModal(qrViewModal);  closeModal(approvalsModal); closeModal(reportDetailsModal);
         stopCamera();
     })
 );
@@ -661,6 +687,33 @@ function renderDashboardData() {
 }
 renderDashboardData();
 
+async function refreshAdminDashboard() {
+    if (!document.body.classList.contains('admin-dashboard')) return;
+    try {
+        const response = await fetch(appUrl('/api/admin/dashboard'), { headers: { Accept: 'application/json' } });
+        if (!response.ok) return;
+        const liveData = await response.json();
+        const currentData = {
+            ...liveData,
+            todayCount: liveData.today_count,
+            memberCount: liveData.member_count,
+            checkIns: (liveData.recent_check_ins || []).map(record => ({
+                name: record.member?.name || 'Unknown member',
+                session: record.session?.name || 'Unknown session',
+                time: new Date(record.checked_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            })),
+        };
+        document.querySelector('#attendance-count')?.replaceChildren(document.createTextNode(String(liveData.today_count)));
+        document.querySelector('.stat-card:nth-child(3) > strong')?.replaceChildren(document.createTextNode(String(liveData.member_count)));
+        const rate = document.querySelector('.stat-card:nth-child(4) > strong');
+        if (rate) rate.replaceChildren(document.createTextNode(String(liveData.checkin_rate)), Object.assign(document.createElement('span'), { className: 'unit', textContent: '%' }));
+        const dataElement = document.querySelector('#dashboard-data');
+        if (dataElement) dataElement.textContent = JSON.stringify(currentData);
+        renderDashboardData();
+    } catch (_) {}
+}
+setInterval(refreshAdminDashboard, 3000);
+
 const dashboardViews = document.querySelectorAll('[data-page]');
 const currentDashboardView = document.body.dataset.currentView || 'overview';
 dashboardViews.forEach(view => view.classList.toggle('hidden', view.dataset.page !== currentDashboardView));
@@ -672,9 +725,7 @@ const showDashboardView = viewName => {
 document.querySelectorAll('[data-view]').forEach(item => item.addEventListener('click', () => showDashboardView(item.dataset.view)));
 document.querySelectorAll('[data-view-link]').forEach(item => item.addEventListener('click', () => showDashboardView(item.dataset.viewLink)));
 document.querySelector('[data-open-approvals]')?.addEventListener('click', () => openModal(approvalsModal));
-document.querySelector('[data-page="reports"] .button-light')?.addEventListener('click', () => {
-    window.location.href = `${appUrl('/admin/reports/pdf')}${window.location.search}`;
-});
+document.querySelector('.dashboard-view-reports [data-page="reports"] .page-heading .button-light')?.remove();
 
 document.querySelector('.mobile-menu')?.addEventListener('click', () =>
     document.querySelector('.sidebar')?.classList.toggle('open'));

@@ -36,6 +36,8 @@ class ReportController extends Controller
         $period = $request->string('period')->toString();
         $period = in_array($period, ['weekly', 'monthly', 'yearly'], true) ? $period : 'monthly';
         $sessionId = $request->integer('session_id');
+        $churchName = trim($request->string('church_name')->toString());
+        $churchLocation = trim($request->string('church_location')->toString());
         $start = match ($period) {
             'weekly' => now()->subDays(6)->startOfDay(),
             'yearly' => now()->startOfYear(),
@@ -48,12 +50,18 @@ class ReportController extends Controller
             ->when($sessionId, fn ($query) => $query->where('attendance_session_id', $sessionId))
             ->latest('checked_in_at');
 
+        $records = $query->get();
+        $paginatedRecords = $query->paginate(5)->withQueryString();
+
         return [
             'period' => $period,
             'start' => $start,
             'end' => $end,
             'selectedSession' => $sessionId ? AttendanceSession::find($sessionId) : null,
-            'records' => $query->get(),
+            'churchName' => $churchName ?: 'Church attendance',
+            'churchLocation' => $churchLocation ?: 'Location not provided',
+            'records' => $records,
+            'paginatedRecords' => $paginatedRecords,
         ];
     }
 }
