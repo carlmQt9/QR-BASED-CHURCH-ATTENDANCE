@@ -10,6 +10,44 @@ const qrViewModal    = document.querySelector('#qr-view-modal');
 const reportDetailsModal = document.querySelector('#report-details-modal');
 let pendingReportUrl = null;
 
+// ─── Notification system ──────────────────────────────────────────────────────
+function showNotification(message, type = 'success', duration = 4000) {
+    const container = document.querySelector('#notification-container');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    notification.className = `notification ${type === 'error' ? 'error' : ''}`;
+    
+    const icon = type === 'error' ? '✗' : '✓';
+    notification.innerHTML = `
+        <div class="notification-icon">${icon}</div>
+        <span>${message}</span>
+        <button class="notification-close" type="button">×</button>
+    `;
+
+    // Add close handler
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => removeNotification(notification));
+
+    container.appendChild(notification);
+
+    // Auto-remove after duration
+    if (duration > 0) {
+        setTimeout(() => removeNotification(notification), duration);
+    }
+
+    return notification;
+}
+
+function removeNotification(notification) {
+    if (!notification || notification.classList.contains('removing')) return;
+    
+    notification.classList.add('removing');
+    setTimeout(() => {
+        notification.remove();
+    }, 250);
+}
+
 // ─── Scanner state ─────────────────────────────────────────────────────────────
 let video    = null;
 let canvas   = null;
@@ -347,14 +385,17 @@ document.querySelector('#manual-attendance-form')?.addEventListener('submit', as
             setScanState('success');
             setStatus('✓ ' + data.member.name + ' — Present!', '#10b981');
             member.value = '';
+            showNotification(`${data.member.name} marked as present`);
             await refreshList();
         } else {
             setScanState(data.status === 'already_attended' ? 'duplicate' : 'error');
             setStatus((data.status === 'already_attended' ? '⚠ ' : '✗ ') + (data.message || 'Could not mark attendance.'), data.status === 'already_attended' ? '#f59e0b' : '#ef4444');
+            showNotification(data.message || 'Could not mark attendance', 'error');
         }
     } catch (_) {
         setScanState('error');
         setStatus('✗ Manual attendance request failed.', '#ef4444');
+        showNotification('Manual attendance request failed', 'error');
     } finally {
         button.disabled = false;
     }
@@ -524,6 +565,7 @@ document.querySelectorAll('[data-close-modal]').forEach(btn =>
     btn.addEventListener('click', () => {
         closeModal(scannerModal); closeModal(memberModal);
         closeModal(qrViewModal);  closeModal(approvalsModal); closeModal(reportDetailsModal);
+        closeModal(deleteConfirmModal); closeModal(endSessionConfirmModal);
         stopCamera();
     })
 );
@@ -563,12 +605,21 @@ document.querySelector('#member-name')?.addEventListener('input', e => {
 
 document.querySelector('#generate-member')?.addEventListener('click', async () => {
     const btn = document.querySelector('#generate-member');
+    const nameInput = document.querySelector('#member-name');
+    const emailInput = document.querySelector('#member-email');
+    
+    if (!nameInput?.value.trim()) {
+        showNotification('Please enter a member name', 'error');
+        return;
+    }
+    
     btn.disabled = true;
     const res = await fetch(appUrl('/api/members'), {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
-        body: JSON.stringify({ name: document.querySelector('#member-name').value, email: document.querySelector('#member-email').value }),
+        body: JSON.stringify({ name: nameInput.value, email: emailInput?.value || '' }),
     });
+    
     if (res.ok) {
         const m = await res.json();
         const qr = document.querySelector('#member-qr');
@@ -600,10 +651,13 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             cards.prepend(row);
             const cnt = document.querySelector('#member-count');
             if (cnt) cnt.textContent = `${cards.querySelectorAll('.directory-row').length} active members`;
+            bindMemberActions(row);
         }
         btn.innerHTML = 'Member added <span>✓</span>';
+        showNotification(`${m.name} has been added successfully`);
     } else {
         btn.innerHTML = 'Could not add member';
+        showNotification('Failed to add member. Please try again.', 'error');
     }
     btn.disabled = false;
 });
@@ -612,18 +666,85 @@ document.querySelector('#print-card')?.addEventListener('click', () => window.pr
 document.querySelector('#print-existing-card')?.addEventListener('click', () => window.print());
 
 // ─── Delete member ─────────────────────────────────────────────────────────────
+const deleteConfirmModal = document.querySelector('#delete-confirm-modal');
+const endSessionConfirmModal = document.querySelector('#end-session-confirm-modal');
+let pendingDeleteBtn = null;
+let pendingEndSessionBtn = null;
+
+function openDeleteConfirm(btn) {
+    pendingDeleteBtn = btn;
+    openModal(deleteConfirmModal);
+}
+
+function openEndSessionConfirm(btn) {
+    pendingEndSessionBtn = btn;
+    openModal(endSessionConfirmModal);
+}
+
+document.querySelector('#delete-cancel-btn')?.addEventListener('click', () => {
+    pendingDeleteBtn = null;
+    closeModal(deleteConfirmModal);
+});
+
+document.querySelector('#delete-confirm-btn')?.addEventListener('click', async () => {
+    if (!pendingDeleteBtn) return;
+    const btn = pendingDeleteBtn;
+    pendingDeleteBtn = null;
+    closeModal(deleteConfirmModal);
+
+    const url = btn.dataset.url || `/api/members/${btn.closest('.directory-row').dataset.memberId}`;
+    const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
+    if (res.ok) {
+        const memberRow = btn.closest('.directory-row');
+        const memberName = memberRow.querySelector('strong')?.textContent || 'Member';
+        memberRow.remove();
+        const cnt = document.querySelector('#member-count');
+        if (cnt) cnt.textContent = `${document.querySelectorAll('#member-cards .directory-row').length} active members`;
+        showNotification(`${memberName} has been removed successfully`);
+    } else {
+        showNotification('Failed to delete member. Please try again.', 'error');
+    }
+});
+
+document.querySelector('#end-session-cancel-btn')?.addEventListener('click', () => {
+    pendingEndSessionBtn = null;
+    closeModal(endSessionConfirmModal);
+});
+
+document.querySelector('#end-session-confirm-btn')?.addEventListener('click', async () => {
+    if (!pendingEndSessionBtn) return;
+    const btn = pendingEndSessionBtn;
+    pendingEndSessionBtn = null;
+    closeModal(endSessionConfirmModal);
+
+    btn.disabled = true;
+    const res = await fetch(btn.dataset.url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
+    if (res.ok) {
+        showNotification('Attendance session has been ended successfully');
+        setTimeout(() => window.location.reload(), 1000);
+    } else {
+        showNotification('Failed to end session. Please try again.', 'error');
+        btn.disabled = false;
+    }
+});
+
+deleteConfirmModal?.addEventListener('click', e => {
+    if (e.target === deleteConfirmModal) {
+        pendingDeleteBtn = null;
+        closeModal(deleteConfirmModal);
+    }
+});
+
+endSessionConfirmModal?.addEventListener('click', e => {
+    if (e.target === endSessionConfirmModal) {
+        pendingEndSessionBtn = null;
+        closeModal(endSessionConfirmModal);
+    }
+});
+
 function bindMemberActions(scope = document) {
     scope.querySelectorAll('.delete-member').forEach(btn =>
-        btn.addEventListener('click', async () => {
-            if (!confirm('Delete this member and their attendance history?')) return;
-            const url = btn.dataset.url || `/api/members/${btn.closest('.directory-row').dataset.memberId}`;
-            const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
-            if (res.ok) {
-                btn.closest('.directory-row').remove();
-                const cnt = document.querySelector('#member-count');
-                if (cnt) cnt.textContent = `${document.querySelectorAll('#member-cards .directory-row').length} active members`;
-            }
-        })
+        btn.addEventListener('click', () => openDeleteConfirm(btn))
     );
 }
 bindMemberActions();
@@ -631,12 +752,18 @@ bindMemberActions();
 // ─── Approve users ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.approve-user').forEach(btn =>
     btn.addEventListener('click', async () => {
+        const approvalRow = btn.closest('.approval-row');
+        const userName = approvalRow.querySelector('strong')?.textContent || 'User';
+        
         btn.disabled = true;
         const res = await fetch(btn.dataset.url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
         if (res.ok) {
-            btn.closest('.approval-row').remove();
+            approvalRow.remove();
             if (!document.querySelector('.approval-row'))
                 document.querySelector('#approval-list').innerHTML = '<p class="muted">No leader accounts are waiting for approval.</p>';
+            showNotification(`${userName} has been approved as a leader`);
+        } else {
+            showNotification('Failed to approve user. Please try again.', 'error');
         }
         btn.disabled = false;
     })
@@ -736,12 +863,9 @@ document.querySelector('[data-view-attendees]')?.addEventListener('click', () =>
 document.querySelector('[data-view-history]')?.addEventListener('click', () =>
     document.querySelector('#leader-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 
-document.querySelector('[data-end-session]')?.addEventListener('click', async e => {
-    if (!confirm('End this attendance session?')) return;
-    const btn = e.currentTarget; btn.disabled = true;
-    const res = await fetch(btn.dataset.url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
-    if (res.ok) window.location.reload();
-    btn.disabled = false;
+document.querySelector('[data-end-session]')?.addEventListener('click', e => {
+    e.preventDefault();
+    openEndSessionConfirm(e.currentTarget);
 });
 
 document.querySelectorAll('.password-toggle').forEach(btn =>
@@ -794,3 +918,121 @@ document.querySelectorAll('[data-duration]').forEach(btn =>
 // ─── Auto-open scanner on session-just-started ─────────────────────────────────
 if (document.body.dataset.autoOpenScanner === 'true' && scannerModal)
     document.querySelector('[data-open-scanner]')?.click();
+
+// ─── Settings page ─────────────────────────────────────────────────────────────
+document.querySelector('#add-gathering-type')?.addEventListener('click', () => {
+    const list = document.querySelector('#gathering-types-list');
+    const item = document.createElement('div');
+    item.className = 'settings-item';
+    item.innerHTML = `
+        <input type="text" class="settings-input" placeholder="Enter gathering type" value="">
+        <button class="button button-quiet remove-item" type="button" aria-label="Remove gathering type" title="Remove">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+        </button>
+    `;
+    list.appendChild(item);
+    item.querySelector('input').focus();
+    bindRemoveItem(item);
+});
+
+document.querySelector('#add-membership-group')?.addEventListener('click', () => {
+    const list = document.querySelector('#membership-groups-list');
+    const item = document.createElement('div');
+    item.className = 'settings-item';
+    item.innerHTML = `
+        <input type="text" class="settings-input" placeholder="Enter membership group" value="">
+        <button class="button button-quiet remove-item" type="button" aria-label="Remove membership group" title="Remove">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" /></svg>
+        </button>
+    `;
+    list.appendChild(item);
+    item.querySelector('input').focus();
+    bindRemoveItem(item);
+});
+
+function bindRemoveItem(scope = document) {
+    scope.querySelectorAll('.remove-item').forEach(btn => {
+        if (btn._boundRemove) return;
+        btn._boundRemove = true;
+        btn.addEventListener('click', () => btn.closest('.settings-item').remove());
+    });
+}
+bindRemoveItem();
+
+document.querySelector('#save-gathering-types')?.addEventListener('click', async () => {
+    const btn = document.querySelector('#save-gathering-types');
+    const inputs = Array.from(document.querySelectorAll('#gathering-types-list .settings-input'));
+    const types = inputs.map(input => input.value.trim()).filter(val => val);
+    
+    if (types.length === 0) {
+        showNotification('Please add at least one gathering type', 'error');
+        return;
+    }
+    
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    
+    try {
+        const res = await fetch(appUrl('/api/settings/gathering-types'), {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+            body: JSON.stringify({ types }),
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.status === 'success') {
+            showNotification('Gathering types updated successfully');
+            btn.textContent = 'Saved ✓';
+            setTimeout(() => { btn.textContent = originalText; }, 2000);
+        } else {
+            showNotification('Failed to update gathering types', 'error');
+            btn.textContent = originalText;
+        }
+    } catch (err) {
+        showNotification('Failed to update gathering types', 'error');
+        btn.textContent = originalText;
+    }
+    
+    btn.disabled = false;
+});
+
+document.querySelector('#save-membership-groups')?.addEventListener('click', async () => {
+    const btn = document.querySelector('#save-membership-groups');
+    const inputs = Array.from(document.querySelectorAll('#membership-groups-list .settings-input'));
+    const groups = inputs.map(input => input.value.trim()).filter(val => val);
+    
+    if (groups.length === 0) {
+        showNotification('Please add at least one membership group', 'error');
+        return;
+    }
+    
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    
+    try {
+        const res = await fetch(appUrl('/api/settings/membership-groups'), {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
+            body: JSON.stringify({ groups }),
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.status === 'success') {
+            showNotification('Membership groups updated successfully');
+            btn.textContent = 'Saved ✓';
+            setTimeout(() => { btn.textContent = originalText; }, 2000);
+        } else {
+            showNotification('Failed to update membership groups', 'error');
+            btn.textContent = originalText;
+        }
+    } catch (err) {
+        showNotification('Failed to update membership groups', 'error');
+        btn.textContent = originalText;
+    }
+    
+    btn.disabled = false;
+});

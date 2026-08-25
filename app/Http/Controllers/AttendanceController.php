@@ -34,7 +34,7 @@ class AttendanceController extends Controller
         $todayCount = AttendanceRecord::whereDate('checked_in_at', today())->count();
         $memberCount = User::where('role', 'member')->count();
         $sessions = AttendanceSession::withCount('records')->whereDate('started_at', today())->latest('started_at')->limit(5)->get();
-        $records = AttendanceRecord::with(['member:id,name', 'session:id,name'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(10)->get();
+        $records = AttendanceRecord::with(['member:id,name', 'session:id,name'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(5)->get();
         $trendRecords = AttendanceRecord::whereBetween('checked_in_at', [now()->subDays(6)->startOfDay(), now()->endOfDay()])->get();
         $trend = collect(range(0, 6))->map(function ($index) use ($trendRecords) {
             $date = now()->subDays(6 - $index);

@@ -3,9 +3,11 @@
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 use App\Models\User;
 use App\Models\AttendanceSession;
 use App\Models\AttendanceRecord;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -19,9 +21,15 @@ Route::get('/dashboard', function () {
     $user = Auth::user();
     abort_unless($user?->isApproved(), 403);
     if ($user->role === 'leader') {
-        return view('leader', ['members' => User::where('role', 'member')->orderBy('name')->get(['id', 'name']), 'sessions' => AttendanceSession::with('records.member')->where('started_by', $user->id)->latest('started_at')->get(), 'activeSession' => AttendanceSession::with('records.member')->where('started_by', $user->id)->where(function ($query) {
-            $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
-        })->latest('started_at')->first()]);
+        return view('leader', [
+            'members' => User::where('role', 'member')->orderBy('name')->get(['id', 'name']), 
+            'sessions' => AttendanceSession::with('records.member')->where('started_by', $user->id)->latest('started_at')->get(), 
+            'activeSession' => AttendanceSession::with('records.member')->where('started_by', $user->id)->where(function ($query) {
+                $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
+            })->latest('started_at')->first(),
+            'gatheringTypes' => Setting::get('gathering_types', ['Sunday worship', 'Prayer meeting', 'Youth fellowship']),
+            'membershipGroups' => Setting::get('membership_groups', ['General congregation', 'Volunteer team', 'Youth ministry'])
+        ]);
     }
     $currentView = request()->query('view', 'overview');
     abort_unless(in_array($currentView, ['overview', 'attendance', 'members', 'reports'], true), 404);
@@ -30,7 +38,7 @@ Route::get('/dashboard', function () {
     $allSessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->get();
     $sessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->paginate(3)->withQueryString();
     $todaySessions = $allSessions->filter(fn ($session) => $session->started_at->isToday())->take(5);
-    $recentCheckIns = AttendanceRecord::with(['member', 'session'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(10)->get();
+    $recentCheckIns = AttendanceRecord::with(['member', 'session'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(5)->get();
     $attendanceCount = AttendanceRecord::whereDate('checked_in_at', today())->count();
     $monthlyCheckins = AttendanceRecord::whereBetween('checked_in_at', [now()->startOfMonth(), now()->endOfMonth()])->count();
     $yearlyCheckins = AttendanceRecord::whereBetween('checked_in_at', [now()->startOfYear(), now()->endOfYear()])->count();
@@ -47,9 +55,34 @@ Route::get('/dashboard', function () {
     $reportData = app(ReportController::class)->reportData(request());
     $reportSessions = AttendanceSession::query()->latest('started_at')->get(['id', 'name', 'type']);
     $dashboardData = ['trend' => $attendanceTrend, 'todayCount' => $attendanceCount, 'memberCount' => $memberCount, 'sessions' => $todaySessions->map(fn ($session) => ['time' => $session->started_at->format('h:i A'), 'name' => $session->name, 'location' => $session->location ?: 'Main campus', 'type' => $session->type, 'count' => $session->records->count()]), 'checkIns' => $recentCheckIns->map(fn ($record) => ['name' => $record->member->name, 'session' => $record->session->name, 'time' => $record->checked_in_at->format('h:i A')])];
-    return view('welcome', ['currentView' => $currentView, 'members' => $members, 'memberCount' => $memberCount, 'sessions' => $sessions, 'todaySessions' => $todaySessions, 'recentCheckIns' => $recentCheckIns, 'attendanceTrend' => $attendanceTrend, 'dashboardData' => $dashboardData, 'attendanceCount' => $attendanceCount, 'weeklyAverage' => $weeklyAverage, 'checkinRate' => $memberCount ? round(($attendanceCount / $memberCount) * 100) : 0, 'monthlyCheckins' => $monthlyCheckins, 'yearlyCheckins' => $yearlyCheckins, 'returningRate' => $returningRate, 'reportRecords' => $reportData['paginatedRecords'], 'reportPeriod' => $reportData['period'], 'reportStart' => $reportData['start'], 'reportEnd' => $reportData['end'], 'selectedReportSession' => $reportData['selectedSession'], 'reportSessions' => $reportSessions, 'pendingUsers' => $user->isSuperAdmin() ? User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get() : collect(), 'activeSession' => AttendanceSession::where(function ($query) {
-        $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
-    })->latest('started_at')->first()]);
+    return view('welcome', [
+        'currentView' => $currentView, 
+        'members' => $members, 
+        'memberCount' => $memberCount, 
+        'sessions' => $sessions, 
+        'todaySessions' => $todaySessions, 
+        'recentCheckIns' => $recentCheckIns, 
+        'attendanceTrend' => $attendanceTrend, 
+        'dashboardData' => $dashboardData, 
+        'attendanceCount' => $attendanceCount, 
+        'weeklyAverage' => $weeklyAverage, 
+        'checkinRate' => $memberCount ? round(($attendanceCount / $memberCount) * 100) : 0, 
+        'monthlyCheckins' => $monthlyCheckins, 
+        'yearlyCheckins' => $yearlyCheckins, 
+        'returningRate' => $returningRate, 
+        'reportRecords' => $reportData['paginatedRecords'], 
+        'reportPeriod' => $reportData['period'], 
+        'reportStart' => $reportData['start'], 
+        'reportEnd' => $reportData['end'], 
+        'selectedReportSession' => $reportData['selectedSession'], 
+        'reportSessions' => $reportSessions, 
+        'pendingUsers' => $user->isSuperAdmin() ? User::where('role', 'leader')->where('approval_status', 'pending')->latest()->get() : collect(), 
+        'activeSession' => AttendanceSession::where(function ($query) {
+            $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
+        })->latest('started_at')->first(),
+        'gatheringTypes' => Setting::get('gathering_types', ['Sunday worship', 'Prayer meeting', 'Youth fellowship']),
+        'membershipGroups' => Setting::get('membership_groups', ['General congregation', 'Volunteer team', 'Youth ministry'])
+    ]);
 })->middleware('auth')->name('dashboard');
 
 Route::get('/leader/history', function () {
@@ -67,6 +100,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::get('/admin/reports/pdf', [ReportController::class, 'exportPdf'])->name('admin.reports.pdf');
     Route::get('/admin/reports/word', [ReportController::class, 'exportWord'])->name('admin.reports.word');
     Route::get('/admin/approvals', function () {
@@ -95,4 +129,6 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/attendance/manual-check-ins', [AttendanceController::class, 'manualCheckIn']);
     Route::post('/members', [AttendanceController::class, 'storeMember']);
     Route::delete('/members/{member}', [AttendanceController::class, 'destroyMember']);
+    Route::post('/settings/gathering-types', [SettingsController::class, 'updateGatheringTypes']);
+    Route::post('/settings/membership-groups', [SettingsController::class, 'updateMembershipGroups']);
 });
