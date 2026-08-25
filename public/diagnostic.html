@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .error {
+            background: #dc3545;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .info {
+            background: #17a2b8;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .warning {
+            background: #ffc107;
+            color: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        #console {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .console-line {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .console-success { color: #4ec9b0; }
+        .console-error { color: #f48771; }
+        .console-warning { color: #ce9178; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-pass {
+            background: #28a745;
+            color: white;
+        }
+        .status-fail {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 QR Scanner Diagnostic Tool</h1>
+    <p>This tool will help diagnose why the QR scanner isn't working.</p>
+
+    <!-- Test 1: Check Session -->
+    <div class="test-section">
+        <h2>📋 Test 1: Check Active Session</h2>
+        <p>Verify there's an active attendance session.</p>
+        <button onclick="checkSession()">Check Session</button>
+        <div id="session-result"></div>
+    </div>
+
+    <!-- Test 2: Check CSRF Token -->
+    <div class="test-section">
+        <h2>🔐 Test 2: Check CSRF Token</h2>
+        <p>Verify the security token is present.</p>
+        <button onclick="checkCSRF()">Check CSRF</button>
+        <div id="csrf-result"></div>
+    </div>
+
+    <!-- Test 3: Test API Endpoint -->
+    <div class="test-section">
+        <h2>🌐 Test 3: Test Check-In API</h2>
+        <p>Test the attendance check-in endpoint with a real QR token.</p>
+        <label>Session ID:</label>
+        <input type="number" id="test-session-id" placeholder="Enter session ID (e.g., 6)">
+        <label>QR Token (from database):</label>
+        <input type="text" id="test-qr-token" placeholder="Enter a member's qr_token">
+        <button onclick="testCheckIn()">Test Check-In</button>
+        <div id="api-result"></div>
+    </div>
+
+    <!-- Test 4: Check Members -->
+    <div class="test-section">
+        <h2>👥 Test 4: Get Member QR Tokens</h2>
+        <p>Get a list of members and their QR tokens for testing.</p>
+        <button onclick="getMembers()">Get Members</button>
+        <div id="members-result"></div>
+    </div>
+
+    <!-- Console Log -->
+    <div class="test-section">
+        <h2>📝 Console Log</h2>
+        <div id="console"></div>
+        <button onclick="clearConsole()">Clear Console</button>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = 'console-line console-' + type;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+            console.log(message);
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '';
+        }
+
+        async function checkSession() {
+            const result = document.getElementById('session-result');
+            result.innerHTML = '<div class="info">Checking session...</div>';
+            log('Checking for active session...');
+
+            try {
+                const response = await fetch('/api/attendance/dashboard', {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Not logged in or unauthorized');
+                }
+
+                const data = await response.json();
+                log('Dashboard API response received', 'success');
+                
+                if (data.active_session) {
+                    result.innerHTML = `
+                        <div class="success">
+                            <strong>✓ Active Session Found!</strong><br>
+                            Session ID: <strong>${data.active_session.id}</strong><br>
+                            Members checked in: <strong>${data.today_count}</strong>
+                        </div>
+                    `;
+                    log(`Active session ID: ${data.active_session.id}`, 'success');
+                    
+                    // Auto-fill test form
+                    document.getElementById('test-session-id').value = data.active_session.id;
+                } else {
+                    result.innerHTML = '<div class="error">❌ No active session found. Please start a session first.</div>';
+                    log('No active session', 'error');
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                log('Error: ' + error.message, 'error');
+            }
+        }
+
+        function checkCSRF() {
+            const result = document.getElementById('csrf-result');
+            log('Checking CSRF token...');
+
+            // Try to get CSRF from meta tag
+            const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            
+            if (metaToken) {
+                result.innerHTML = `<div class="success">✓ CSRF token found: ${metaToken.substring(0, 20)}...</div>`;
+                log('CSRF token found', 'success');
+            } else {
+                result.innerHTML = '<div class="warning">⚠ CSRF token NOT found. You need to be on the actual Laravel page.</div>';
+                log('CSRF token missing', 'warning');
+            }
+        }
+
+        async function testCheckIn() {
+            const result = document.getElementById('api-result');
+            const sessionId = document.getElementById('test-session-id').value;
+            const qrToken = document.getElementById('test-qr-token').value;
+
+            if (!sessionId || !qrToken) {
+                result.innerHTML = '<div class="error">❌ Please enter both Session ID and QR Token</div>';
+                return;
+            }
+
+            result.innerHTML = '<div class="info">Testing check-in...</div>';
+            log(`Testing check-in with session: ${sessionId}, QR: ${qrToken.substring(0, 20)}...`);
+
+            try {
+                const response = await fetch('/api/attendance/check-ins', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || 'NO-TOKEN'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        qr_token: qrToken
+                    })
+                });
+
+                const data = await response.json();
+                log('API Response: ' + JSON.stringify(data), response.ok ? 'success' : 'error');
+
+                if (data.status === 'success') {
+                    result.innerHTML = `
+                        <div class="success">
+                            <strong>✓ CHECK-IN SUCCESSFUL!</strong><br>
+                            Member: <strong>${data.member.name}</strong><br>
+                            Member Code: ${data.member.member_code}<br>
+                            Time: ${data.checked_in_at}
+                        </div>
+                    `;
+                } else if (data.status === 'already_attended') {
+                    result.innerHTML = `<div class="warning">⚠ ${data.message}</div>`;
+                } else {
+                    result.innerHTML = `<div class="error">❌ ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+                log('Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function getMembers() {
+            const result = document.getElementById('members-result');
+            result.innerHTML = '<div class="info">This feature requires database access. Check your database for members table.</div>';
+            log('To get members, run this SQL query:');
+            log('SELECT id, name, member_code, qr_token FROM users WHERE role = "member"');
+            
+            result.innerHTML += `
+                <div class="warning" style="margin-top: 10px;">
+                    <strong>Run this command in your terminal:</strong><br>
+                    <code style="display: block; background: #2d2d2d; color: #fff; padding: 10px; border-radius: 4px; margin-top: 5px;">
+                        php artisan tinker --execute="\\$members = App\\Models\\User::where('role', 'member')->get(['id', 'name', 'qr_token', 'member_code']); foreach(\\$members as \\$m) { echo '- ' . \\$m->name . ' | QR: ' . \\$m->qr_token . PHP_EOL; }"
+                    </code>
+                </div>
+            `;
+        }
+
+        // Auto-run basic checks on load
+        window.addEventListener('load', () => {
+            log('Diagnostic tool loaded', 'success');
+            log('Click the buttons to run tests');
+        });
+    </script>
+</body>
+</html>

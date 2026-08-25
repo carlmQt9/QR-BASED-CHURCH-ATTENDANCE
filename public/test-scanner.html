@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner Test</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        #reader {
+            width: 100%;
+            border: 2px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+        .success {
+            background: #10b981 !important;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #555;
+        }
+        h1 {
+            text-align: center;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 QR Scanner Test</h1>
+    <div class="info">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Click "Start Scanner" button</li>
+            <li>Allow camera permissions</li>
+            <li>Point camera at any QR code</li>
+            <li>Watch the result appear below</li>
+        </ol>
+    </div>
+    
+    <button onclick="startScanning()">Start Scanner</button>
+    <button onclick="stopScanning()">Stop Scanner</button>
+    
+    <div id="reader" style="margin-top: 20px;"></div>
+    <div id="result">
+        <strong>Scan Result:</strong>
+        <p id="output">No QR code scanned yet</p>
+        <p id="count">Scans: 0</p>
+    </div>
+
+    <script>
+        let html5QrCode;
+        let scanCount = 0;
+        let lastScan = '';
+        
+        function startScanning() {
+            const reader = document.getElementById('reader');
+            
+            if (html5QrCode) {
+                alert('Scanner already running!');
+                return;
+            }
+            
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 }
+            };
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText, decodedResult) => {
+                    // Success callback
+                    console.log('QR Code detected:', decodedText);
+                    
+                    if (decodedText !== lastScan) {
+                        scanCount++;
+                        lastScan = decodedText;
+                        
+                        const output = document.getElementById('output');
+                        output.innerHTML = `<div class="success">✓ Scanned: ${decodedText}</div>`;
+                        
+                        document.getElementById('count').textContent = `Scans: ${scanCount}`;
+                        
+                        // Play beep
+                        playBeep();
+                        
+                        // Reset after 2 seconds
+                        setTimeout(() => {
+                            lastScan = '';
+                        }, 2000);
+                    }
+                },
+                (errorMessage) => {
+                    // Error callback (scanning, no QR found)
+                    // Don't log to avoid spam
+                }
+            ).then(() => {
+                console.log('✓ Scanner started');
+                document.getElementById('output').innerHTML = '<strong style="color: green;">✓ Scanner active - point at QR code</strong>';
+            }).catch((err) => {
+                console.error('Failed to start:', err);
+                document.getElementById('output').innerHTML = `<strong style="color: red;">❌ Error: ${err}</strong>`;
+            });
+        }
+        
+        function stopScanning() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    console.log('✓ Scanner stopped');
+                    html5QrCode = null;
+                    document.getElementById('output').textContent = 'Scanner stopped';
+                }).catch((err) => {
+                    console.error('Stop error:', err);
+                });
+            }
+        }
+        
+        function playBeep() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 880;
+            gainNode.gain.value = 0.1;
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+    </script>
+</body>
+</html>

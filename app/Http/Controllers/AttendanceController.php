@@ -49,6 +49,9 @@ class AttendanceController extends Controller
         }
 
         $session = AttendanceSession::findOrFail($validated['session_id']);
+        if ($session->ended_at && $session->ended_at->isPast()) {
+            return response()->json(['status' => 'failed', 'message' => 'This attendance session has ended.'], 422);
+        }
         $existing = AttendanceRecord::query()->where('attendance_session_id', $session->id)->where('user_id', $member->id)->first();
         if ($existing) {
             return response()->json(['status' => 'already_attended', 'message' => $member->name . ' is already checked in.', 'member' => $member->only(['id', 'name', 'member_code']), 'checked_in_at' => $existing->checked_in_at], 409);
@@ -60,6 +63,39 @@ class AttendanceController extends Controller
         );
 
         return response()->json(['status' => 'success', 'new' => $record->wasRecentlyCreated, 'member' => $member->only(['id', 'name', 'member_code']), 'checked_in_at' => $record->checked_in_at]);
+    }
+
+    public function manualCheckIn(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['session_id' => ['required', 'exists:attendance_sessions,id'], 'member_id' => ['required', 'exists:users,id']]);
+        $leader = $request->user();
+        $session = AttendanceSession::findOrFail($validated['session_id']);
+        $member = User::whereKey($validated['member_id'])->where('role', 'member')->firstOrFail();
+
+        abort_unless($leader?->role === 'leader' && $leader->isApproved() && $session->started_by === $leader->id, 403);
+        if ($session->ended_at && $session->ended_at->isPast()) {
+            return response()->json(['status' => 'failed', 'message' => 'This attendance session has ended.'], 422);
+        }
+
+        $record = AttendanceRecord::firstOrCreate(
+            ['attendance_session_id' => $session->id, 'user_id' => $member->id],
+            ['checked_in_at' => now()]
+        );
+
+        return response()->json([
+            'status' => $record->wasRecentlyCreated ? 'success' : 'already_attended',
+            'member' => $member->only(['id', 'name', 'member_code']),
+            'checked_in_at' => $record->checked_in_at,
+            'message' => $record->wasRecentlyCreated ? $member->name . ' is present.' : $member->name . ' is already checked in.',
+        ], $record->wasRecentlyCreated ? 201 : 409);
+    }
+
+    public function end(Request $request, AttendanceSession $session): JsonResponse|RedirectResponse
+    {
+        abort_unless($request->user()?->id === $session->started_by && $request->user()->isApproved(), 403);
+        $session->update(['ended_at' => now()]);
+
+        return $request->expectsJson() ? response()->json(['ended' => true]) : redirect()->route('dashboard');
     }
 
     public function storeMember(Request $request): JsonResponse
