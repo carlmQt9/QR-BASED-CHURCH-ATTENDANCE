@@ -64,6 +64,7 @@ let processedCanvas = null;
 let processedCtx = null;
 let stateTimer = null;
 let barcodeDetector = null;
+let cameraFacingMode = 'environment';
 
 // ─── Get session ID from DOM (never cached) ────────────────────────────────────
 function sid() {
@@ -419,7 +420,7 @@ async function startCamera() {
     video.autoplay = true;
     video.muted = true;
     video.playsInline = true;
-    video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    video.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;transform:${cameraFacingMode === 'user' ? 'scaleX(-1)' : 'none'};`;
     reader.append(video);
     canvas = document.createElement('canvas');
     ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -442,6 +443,21 @@ async function startCamera() {
     }
 
     const cameraBottom = guide.parentElement?.querySelector('.camera-bottom');
+    if (cameraBottom && !cameraBottom.querySelector('[data-flip-camera]')) {
+        const flipCamera = document.createElement('button');
+        flipCamera.type = 'button';
+        flipCamera.className = 'scan-now flip-camera';
+        flipCamera.setAttribute('data-flip-camera', '');
+        flipCamera.setAttribute('aria-label', 'Switch camera');
+        flipCamera.title = 'Switch camera';
+        flipCamera.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8V4m0 0h-4m4 0-4.5 4.5M4 16v4m0 0h4m-4 0 4.5-4.5M7 7.5A7 7 0 0 1 18 6M17 16.5A7 7 0 0 1 6 18"/></svg>';
+        cameraBottom.append(flipCamera);
+        flipCamera.addEventListener('click', async () => {
+            cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
+            await stopCamera();
+            await startCamera();
+        });
+    }
     let retry = document.querySelector('#scanner-retry');
     if (!retry && cameraBottom) {
         retry = document.createElement('button');
@@ -463,7 +479,7 @@ async function startCamera() {
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 }, resizeMode: 'none' },
+            video: { facingMode: { ideal: cameraFacingMode }, width: { ideal: 1920 }, height: { ideal: 1080 }, resizeMode: 'none' },
             audio: false,
         });
         video.srcObject = stream;
@@ -522,6 +538,23 @@ window.addEventListener('beforeunload', () => {
 // ─── Modal helpers ─────────────────────────────────────────────────────────────
 const openModal  = m => { if (m) { m.classList.add('open');    m.setAttribute('aria-hidden', 'false'); } };
 const closeModal = m => { if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true');  } };
+const setButtonLoading = (button, label) => {
+    if (!button) return;
+    if (!button.dataset.originalLabel) button.dataset.originalLabel = button.textContent.trim();
+    const buttonText = button.querySelector('.auth-button-text');
+    if (buttonText) buttonText.textContent = label;
+    else if (!button.querySelector('.auth-button-loader')) button.textContent = label;
+    button.classList.add('is-loading');
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+};
+const resetButtonLoading = button => {
+    if (!button) return;
+    if (button.dataset.originalLabel) button.textContent = button.dataset.originalLabel;
+    button.classList.remove('is-loading');
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+};
 
 // ─── Open scanner ──────────────────────────────────────────────────────────────
 document.querySelectorAll('.service-panel [data-open-scanner]').forEach(btn => {
@@ -532,9 +565,11 @@ document.querySelectorAll('.service-panel [data-open-scanner]').forEach(btn => {
 
 document.querySelectorAll('[data-open-scanner]').forEach(btn =>
     btn.addEventListener('click', async () => {
+        setButtonLoading(btn, 'Opening scanner...');
         openModal(scannerModal);
         busy = false; lastVal = null;
         await startCamera();
+        resetButtonLoading(btn);
     })
 );
 
@@ -598,6 +633,36 @@ document.querySelector('#member-cards')?.addEventListener('click', e => {
 });
 
 // ─── Add member & generate QR ──────────────────────────────────────────────────
+function normalizeMemberActionIcons(scope = document) {
+    scope.querySelectorAll('.row-actions').forEach(actions => {
+        const qr = actions.querySelector('.view-qr');
+        if (qr) {
+            qr.setAttribute('aria-label', 'View member QR code');
+            qr.title = 'View member QR code';
+            qr.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg>';
+        }
+        const archive = actions.querySelector('.archive-user');
+        if (archive) {
+            archive.setAttribute('aria-label', 'Archive user');
+            archive.title = 'Archive user';
+            archive.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg>';
+        }
+        const deleteButton = actions.querySelector('.delete-member');
+        if (deleteButton) {
+            deleteButton.setAttribute('aria-label', 'Delete member');
+            deleteButton.title = 'Delete member';
+            deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
+        }
+        const forceDelete = actions.querySelector('.force-delete-user');
+        if (forceDelete) {
+            forceDelete.setAttribute('aria-label', 'Delete user permanently');
+            forceDelete.title = 'Delete user permanently';
+            forceDelete.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
+        }
+    });
+}
+normalizeMemberActionIcons();
+
 document.querySelector('#member-name')?.addEventListener('input', e => {
     const p = document.querySelector('#qr-member-name');
     if (p) p.textContent = e.target.value || 'New member';
@@ -607,19 +672,20 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
     const btn = document.querySelector('#generate-member');
     const nameInput = document.querySelector('#member-name');
     const emailInput = document.querySelector('#member-email');
-    
+    const originalMarkup = btn?.innerHTML || '';
+
     if (!nameInput?.value.trim()) {
         showNotification('Please enter a member name', 'error');
         return;
     }
-    
-    btn.disabled = true;
+
+    setButtonLoading(btn, 'Generating...');
     const res = await fetch(appUrl('/api/members'), {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
         body: JSON.stringify({ name: nameInput.value, email: emailInput?.value || '' }),
     });
-    
+
     if (res.ok) {
         const m = await res.json();
         const qr = document.querySelector('#member-qr');
@@ -639,27 +705,46 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             row.innerHTML =
                 '<div class="member-cell"><div class="member-avatar"></div><strong></strong></div>' +
                 '<span></span><span class="tag">QR active</span>' +
-                '<div class="row-actions"><button class="row-action view-qr" type="button">QR</button>' +
-                '<button class="row-action delete-member" type="button">×</button></div>';
+                '<div class="row-actions"><button class="row-action view-qr" type="button" aria-label="View member QR code" title="View member QR code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg></button>' +
+                '<button class="row-action archive-user" data-url="/api/users/' + m.id + '/archive" type="button" aria-label="Archive user" title="Archive user"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg></button>' +
+                '<button class="row-action force-delete-user" data-url="/api/users/' + m.id + '" data-method="DELETE" type="button" aria-label="Delete user permanently" title="Delete user permanently"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>';
             row.querySelector('.member-avatar').textContent = m.name.split(' ').map(p => p[0]).join('').slice(0, 2);
             row.querySelector('strong').textContent         = m.name;
             row.querySelector('span:not(.tag)').textContent = `Member since ${new Date().getFullYear()}`;
             row.querySelector('.view-qr').dataset.name  = m.name;
             row.querySelector('.view-qr').dataset.code  = m.member_code;
             row.querySelector('.view-qr').dataset.token = m.qr_token;
-            row.querySelector('.delete-member').dataset.url = `/api/members/${m.id}`;
             cards.prepend(row);
+            normalizeMemberActionIcons(row);
             const cnt = document.querySelector('#member-count');
             if (cnt) cnt.textContent = `${cards.querySelectorAll('.directory-row').length} active members`;
             bindMemberActions(row);
+            row.querySelector('.archive-user').addEventListener('click', () => openArchiveConfirm(row.querySelector('.archive-user'), 'Archiving...', 'Archive this user?'));
+            row.querySelector('.force-delete-user').addEventListener('click', () => openArchiveConfirm(row.querySelector('.force-delete-user'), 'Deleting...', 'Permanently delete this user? This cannot be undone.'));
         }
         btn.innerHTML = 'Member added <span>✓</span>';
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+        btn.removeAttribute('aria-busy');
         showNotification(`${m.name} has been added successfully`);
+        setTimeout(() => {
+            if (btn) {
+                btn.innerHTML = originalMarkup;
+                btn.disabled = false;
+                btn.classList.remove('is-loading');
+                btn.removeAttribute('aria-busy');
+            }
+        }, 1400);
     } else {
         btn.innerHTML = 'Could not add member';
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+        btn.removeAttribute('aria-busy');
         showNotification('Failed to add member. Please try again.', 'error');
+        setTimeout(() => {
+            if (btn) btn.innerHTML = originalMarkup;
+        }, 1400);
     }
-    btn.disabled = false;
 });
 
 document.querySelector('#print-card')?.addEventListener('click', () => window.print());
@@ -692,6 +777,7 @@ document.querySelector('#delete-confirm-btn')?.addEventListener('click', async (
     pendingDeleteBtn = null;
     closeModal(deleteConfirmModal);
 
+    setButtonLoading(document.querySelector('#delete-confirm-btn'), 'Archiving...');
     const url = btn.dataset.url || `/api/members/${btn.closest('.directory-row').dataset.memberId}`;
     const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
     if (res.ok) {
@@ -700,10 +786,99 @@ document.querySelector('#delete-confirm-btn')?.addEventListener('click', async (
         memberRow.remove();
         const cnt = document.querySelector('#member-count');
         if (cnt) cnt.textContent = `${document.querySelectorAll('#member-cards .directory-row').length} active members`;
-        showNotification(`${memberName} has been removed successfully`);
+        showNotification(`${memberName} has been archived successfully`);
     } else {
         showNotification('Failed to delete member. Please try again.', 'error');
+        resetButtonLoading(document.querySelector('#delete-confirm-btn'));
     }
+});
+
+let pendingArchiveAction = null;
+let actionConfirmModal = null;
+
+function openArchiveConfirm(button, message, confirmMessage) {
+    pendingArchiveAction = { button, message };
+    if (!actionConfirmModal) {
+        actionConfirmModal = document.createElement('div');
+        actionConfirmModal.className = 'modal-backdrop';
+        actionConfirmModal.innerHTML = `<section class="modal confirm-modal" role="alertdialog" aria-modal="true"><div class="confirm-icon">!</div><h2>Are you sure?</h2><p class="muted action-confirm-copy"></p><div class="confirm-actions"><button class="button button-quiet action-confirm-cancel" type="button">Cancel</button><button class="button button-danger action-confirm-ok" type="button">Continue</button></div></section>`;
+        document.body.append(actionConfirmModal);
+        actionConfirmModal.querySelector('.action-confirm-cancel').addEventListener('click', () => { pendingArchiveAction = null; closeModal(actionConfirmModal); });
+        actionConfirmModal.querySelector('.action-confirm-ok').addEventListener('click', async () => {
+            const action = pendingArchiveAction;
+            pendingArchiveAction = null;
+            closeModal(actionConfirmModal);
+            if (action) await runArchiveAction(action.button, action.message);
+        });
+    }
+    actionConfirmModal.querySelector('.action-confirm-copy').textContent = confirmMessage;
+    openModal(actionConfirmModal);
+}
+
+async function runArchiveAction(button, message) {
+    setButtonLoading(button, message);
+    try {
+        const response = await fetch(button.dataset.url, { method: button.dataset.method || 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
+        if (!response.ok) throw new Error('Request failed');
+        if (button.classList.contains('archive-session') || button.classList.contains('archive-user')) {
+            moveToArchiveList(button);
+            const activeItem = button.closest('.history-session, .directory-row');
+            activeItem?.remove();
+            showNotification(button.classList.contains('archive-user') ? 'User archived successfully.' : 'Attendance session archived successfully.');
+            return;
+        }
+        if (button.classList.contains('restore-session') || button.classList.contains('restore-user')) {
+            const view = button.classList.contains('restore-user') ? 'members' : 'attendance';
+            sessionStorage.setItem('archiveNotification', button.classList.contains('restore-user') ? 'User restored successfully.' : 'Attendance session restored successfully.');
+            window.location.href = `${window.location.pathname}?view=${view}`;
+            return;
+        }
+        button.closest('[data-archive-row]')?.remove();
+        showNotification(button.classList.contains('force-delete-user') ? 'User permanently deleted.' : button.classList.contains('force-delete-session') ? 'Attendance session permanently deleted.' : button.dataset.successMessage || 'Action completed successfully');
+    } catch (_) {
+        resetButtonLoading(button);
+        showNotification('Action could not be completed. Please try again.', 'error');
+    }
+}
+
+function moveToArchiveList(button) {
+    const isUser = button.classList.contains('archive-user');
+    const headingText = isUser ? 'Archived users' : 'Archived attendance';
+    let panel = Array.from(document.querySelectorAll('.archive-modal-content .archive-panel, .user-archive-modal-content .archive-panel'))
+        .find(item => item.querySelector('h2')?.textContent.trim() === (isUser ? 'Archived users' : 'Archived attendance'));
+    if (!panel) {
+        const container = document.querySelector(isUser ? '.user-archive-modal-content' : '.archive-modal-content');
+        if (!container) return;
+        panel = document.createElement('section');
+        panel.className = 'panel archive-panel';
+        panel.innerHTML = `<div class="panel-heading"><div><span class="section-kicker">${isUser ? 'User management' : 'Session management'}</span><h2>${headingText}</h2></div><span class="muted">Restore or permanently remove ${isUser ? 'users' : 'sessions'}</span></div>`;
+        container.append(panel);
+    }
+    panel.querySelector('.archive-empty')?.remove();
+    const source = button.closest(isUser ? '.directory-row' : '.history-session');
+    const title = source?.querySelector('strong, h2')?.textContent.trim() || 'Archived record';
+    const details = isUser
+        ? source?.querySelector('.role-tag')?.textContent.trim() || 'User'
+        : `${source?.querySelector('.muted')?.textContent.trim() || ''}`;
+    const archiveId = button.dataset.url.match(/(\d+)(?:\/archive)?$/)?.[1];
+    const row = document.createElement('div');
+    row.className = 'archive-row';
+    row.dataset.archiveRow = '';
+    row.innerHTML = `<div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(details)}</span></div><div class="row-actions"><button class="row-action ${isUser ? 'restore-user' : 'restore-session'}" data-url="/api/${isUser ? 'users' : 'attendance/sessions'}/${archiveId}/restore" type="button">Restore</button><button class="row-action ${isUser ? 'force-delete-user' : 'force-delete-session'}" data-url="/api/${isUser ? 'users' : 'attendance/sessions'}/${archiveId}" data-method="DELETE" type="button">Delete</button></div>`;
+    panel.append(row);
+    row.querySelectorAll('.restore-session, .restore-user').forEach(item => item.addEventListener('click', () => openArchiveConfirm(item, 'Restoring...', 'Restore this item?')));
+    row.querySelectorAll('.force-delete-session, .force-delete-user').forEach(item => item.addEventListener('click', () => openArchiveConfirm(item, 'Deleting...', 'Permanently delete this item? This cannot be undone.')));
+}
+
+document.querySelectorAll('.archive-session, .archive-user').forEach(button =>
+    button.addEventListener('click', () => openArchiveConfirm(button, 'Archiving...', 'Archive this item?'))
+);
+document.querySelectorAll('.restore-session, .restore-user').forEach(button =>
+    button.addEventListener('click', () => openArchiveConfirm(button, 'Restoring...', 'Restore this item?'))
+);
+document.querySelectorAll('.force-delete-session, .force-delete-user').forEach(button => {
+    button.dataset.method = 'DELETE';
+    button.addEventListener('click', () => openArchiveConfirm(button, 'Deleting...', 'Permanently delete this item? This cannot be undone.'));
 });
 
 document.querySelector('#end-session-cancel-btn')?.addEventListener('click', () => {
@@ -717,14 +892,14 @@ document.querySelector('#end-session-confirm-btn')?.addEventListener('click', as
     pendingEndSessionBtn = null;
     closeModal(endSessionConfirmModal);
 
-    btn.disabled = true;
+    setButtonLoading(document.querySelector('#end-session-confirm-btn'), 'Ending session...');
     const res = await fetch(btn.dataset.url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
     if (res.ok) {
         showNotification('Attendance session has been ended successfully');
         setTimeout(() => window.location.reload(), 1000);
     } else {
         showNotification('Failed to end session. Please try again.', 'error');
-        btn.disabled = false;
+        resetButtonLoading(document.querySelector('#end-session-confirm-btn'));
     }
 });
 
@@ -765,7 +940,7 @@ document.querySelectorAll('.approve-user').forEach(btn =>
         } else {
             showNotification('Failed to approve user. Please try again.', 'error');
         }
-        btn.disabled = false;
+        resetButtonLoading(document.querySelector('#end-session-confirm-btn'));
     })
 );
 
@@ -856,6 +1031,88 @@ setInterval(refreshAdminDashboard, 3000);
 const dashboardViews = document.querySelectorAll('[data-page]');
 const currentDashboardView = document.body.dataset.currentView || 'overview';
 dashboardViews.forEach(view => view.classList.toggle('hidden', view.dataset.page !== currentDashboardView));
+const archivePages = document.querySelectorAll('.archive-page');
+if (archivePages.length) {
+    const archiveModal = document.createElement('div');
+    archiveModal.className = 'modal-backdrop';
+    archiveModal.innerHTML = '<section class="modal archive-modal" role="dialog" aria-modal="true" aria-labelledby="archive-title"><button class="modal-close archive-modal-close" type="button" aria-label="Close archive">×</button><span class="section-kicker">Attendance</span><h2 id="archive-title">Archived attendance</h2><div class="archive-modal-content"></div></section>';
+    document.body.append(archiveModal);
+    const archiveContent = archiveModal.querySelector('.archive-modal-content');
+    archivePages.forEach(page => { while (page.firstChild) archiveContent.append(page.firstChild); page.remove(); });
+    const userArchivePanel = Array.from(archiveContent.querySelectorAll('.archive-panel')).find(panel => panel.querySelector('h2')?.textContent.trim() === 'Archived users');
+    let userArchiveModal = null;
+    if (userArchivePanel) {
+        userArchiveModal = document.createElement('div');
+        userArchiveModal.className = 'modal-backdrop';
+        userArchiveModal.innerHTML = '<section class="modal archive-modal" role="dialog" aria-modal="true" aria-labelledby="user-archive-title"><button class="modal-close user-archive-modal-close" type="button" aria-label="Close user archive">×</button><span class="section-kicker">Users</span><h2 id="user-archive-title">Archived users</h2><div class="user-archive-modal-content"></div></section>';
+        document.body.append(userArchiveModal);
+        userArchiveModal.querySelector('.user-archive-modal-content').append(userArchivePanel);
+        userArchiveModal.querySelector('.user-archive-modal-close').addEventListener('click', () => closeModal(userArchiveModal));
+    }
+    archiveContent.querySelectorAll('.archive-panel').forEach(panel => {
+        const heading = panel.querySelector('h2')?.textContent.trim();
+        if (heading !== 'Archived attendance') panel.remove();
+    });
+    archiveModal.querySelector('.archive-modal-close').addEventListener('click', () => closeModal(archiveModal));
+    document.querySelectorAll('[data-page="attendance"] .page-heading, [data-page="members"] .page-heading').forEach(heading => {
+        const button = document.createElement('button');
+        button.className = 'button button-light archive-open-button';
+        button.type = 'button';
+        button.textContent = heading.closest('[data-page]')?.dataset.page === 'members' ? 'View archived users' : 'View archive';
+        button.addEventListener('click', () => openModal(heading.closest('[data-page]')?.dataset.page === 'members' ? userArchiveModal : archiveModal));
+        const actionGroup = document.createElement('div');
+        actionGroup.className = 'page-heading-actions';
+        actionGroup.append(button);
+        Array.from(heading.children).filter(child => child.matches('button, a')).forEach(action => actionGroup.append(action));
+        heading.append(actionGroup);
+    });
+    const archiveNotification = sessionStorage.getItem('archiveNotification');
+    if (archiveNotification) {
+        sessionStorage.removeItem('archiveNotification');
+        setTimeout(() => showNotification(archiveNotification), 120);
+    }
+    const sessionIds = window.activeSessionIds || [];
+    document.querySelectorAll('[data-page="attendance"] .history-session').forEach((card, index) => {
+        const actions = document.createElement('div');
+        actions.className = 'row-actions history-actions';
+        actions.innerHTML = `<button class="row-action archive-session" data-url="/api/attendance/sessions/${sessionIds[index]}/archive" aria-label="Archive attendance session" title="Archive attendance session" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg></button><button class="row-action force-delete-session" data-url="/api/attendance/sessions/${sessionIds[index]}" data-method="DELETE" aria-label="Delete attendance session permanently" title="Delete attendance session permanently" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>`;
+        card.querySelector('.history-total')?.append(actions);
+        actions.querySelector('.archive-session').addEventListener('click', event => openArchiveConfirm(event.currentTarget, 'Archiving...', 'Archive this attendance session?'));
+        actions.querySelector('.force-delete-session').addEventListener('click', event => openArchiveConfirm(event.currentTarget, 'Deleting...', 'Permanently delete this attendance session? This cannot be undone.'));
+    });
+    const userIds = window.activeUserIds || [];
+    document.querySelectorAll('[data-page="members"] #member-cards .directory-row').forEach((row, index) => {
+        const userId = userIds[index];
+        if (!userId || userId === window.currentUserId) return;
+        row.querySelector('.delete-member')?.remove();
+        const actions = row.querySelector('.row-actions');
+        if (!actions) return;
+        const qrButton = actions.querySelector('.view-qr');
+        if (qrButton) {
+            qrButton.setAttribute('aria-label', 'View member QR code');
+            qrButton.title = 'View member QR code';
+            qrButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg>';
+        }
+        const archiveButton = document.createElement('button');
+        archiveButton.className = 'row-action archive-user';
+        archiveButton.dataset.url = `/api/users/${userId}/archive`;
+        archiveButton.type = 'button';
+        archiveButton.setAttribute('aria-label', 'Archive user');
+        archiveButton.title = 'Archive user';
+        archiveButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg>';
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'row-action force-delete-user';
+        deleteButton.dataset.url = `/api/users/${userId}`;
+        deleteButton.dataset.method = 'DELETE';
+        deleteButton.type = 'button';
+        deleteButton.setAttribute('aria-label', 'Delete user permanently');
+        deleteButton.title = 'Delete user permanently';
+        deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
+        actions.append(archiveButton, deleteButton);
+        archiveButton.addEventListener('click', () => openArchiveConfirm(archiveButton, 'Archiving...', 'Archive this user?'));
+        deleteButton.addEventListener('click', () => openArchiveConfirm(deleteButton, 'Deleting...', 'Permanently delete this user? This cannot be undone.'));
+    });
+}
 document.querySelector('.admin-dashboard .history-pagination:not(.attendance-pagination)')?.remove();
 document.querySelectorAll('.admin-dashboard .attendance-pagination').forEach((pagination, index) => { if (index > 0) pagination.remove(); });
 const showDashboardView = viewName => {
@@ -896,6 +1153,25 @@ document.querySelectorAll('.password-toggle').forEach(btn => {
             });
 });
 
+const termsModal = document.querySelector('#terms-modal');
+document.querySelector('[data-open-terms]')?.addEventListener('click', event => {
+    event.preventDefault();
+    openModal(termsModal);
+});
+termsModal?.querySelectorAll('[data-close-terms]').forEach(button => button.addEventListener('click', () => closeModal(termsModal)));
+
+document.querySelectorAll('.auth-form-wrap form').forEach(form => {
+    form.addEventListener('submit', () => {
+        const submitButton = form.querySelector('.auth-button');
+        if (!submitButton) return;
+        const buttonText = submitButton.querySelector('.auth-button-text');
+        if (buttonText) buttonText.textContent = submitButton.dataset.loadingLabel || 'Submitting...';
+        submitButton.classList.add('is-loading');
+        submitButton.disabled = true;
+        submitButton.setAttribute('aria-label', buttonText?.textContent || 'Submitting');
+    });
+});
+
 // ─── Logout modal ──────────────────────────────────────────────────────────────
 let logoutForm, logoutModal;
 function buildLogoutModal(form) {
@@ -911,12 +1187,19 @@ function buildLogoutModal(form) {
             '<p class="muted">Your session will end on this device.</p>' +
             '<div class="modal-footer">' +
             '<button class="button button-light logout-cancel" type="button">Cancel</button>' +
-            '<button class="button button-dark logout-continue" type="button">Log out</button>' +
+            '<button class="button button-dark logout-continue" type="button"><span class="auth-button-label"><span class="auth-button-text">Log out</span></span><span class="auth-button-loader" aria-hidden="true"></span></button>' +
             '</div></section>';
         document.body.append(logoutModal);
         logoutModal.querySelector('.modal-close').addEventListener('click',     () => closeModal(logoutModal));
         logoutModal.querySelector('.logout-cancel').addEventListener('click',   () => closeModal(logoutModal));
-        logoutModal.querySelector('.logout-continue').addEventListener('click', () => logoutForm.submit());
+        logoutModal.querySelector('.logout-continue').addEventListener('click', e => {
+            const button = e.currentTarget;
+            button.classList.add('is-loading');
+            button.disabled = true;
+            button.querySelector('.auth-button-text').textContent = 'Logging out...';
+            button.setAttribute('aria-label', 'Logging out');
+            logoutForm.submit();
+        });
         logoutModal.addEventListener('click', e => { if (e.target === logoutModal) closeModal(logoutModal); });
     }
     openModal(logoutModal);
@@ -979,6 +1262,10 @@ function bindRemoveItem(scope = document) {
 }
 bindRemoveItem();
 
+document.querySelector('.session-form')?.addEventListener('submit', event => {
+    setButtonLoading(event.currentTarget.querySelector('.start-session'), 'Starting session...');
+});
+
 document.querySelector('#save-gathering-types')?.addEventListener('click', async () => {
     const btn = document.querySelector('#save-gathering-types');
     const inputs = Array.from(document.querySelectorAll('#gathering-types-list .settings-input'));
@@ -989,9 +1276,7 @@ document.querySelector('#save-gathering-types')?.addEventListener('click', async
         return;
     }
     
-    btn.disabled = true;
-    const originalText = btn.textContent;
-    btn.textContent = 'Saving...';
+    setButtonLoading(btn, 'Saving...');
     
     try {
         const res = await fetch(appUrl('/api/settings/gathering-types'), {
@@ -1004,18 +1289,18 @@ document.querySelector('#save-gathering-types')?.addEventListener('click', async
         
         if (res.ok && data.status === 'success') {
             showNotification('Gathering types updated successfully');
-            btn.textContent = 'Saved ✓';
-            setTimeout(() => { btn.textContent = originalText; }, 2000);
+            btn.textContent = 'Saved';
+            setTimeout(() => resetButtonLoading(btn), 2000);
         } else {
             showNotification('Failed to update gathering types', 'error');
-            btn.textContent = originalText;
+            resetButtonLoading(btn);
         }
     } catch (err) {
         showNotification('Failed to update gathering types', 'error');
-        btn.textContent = originalText;
+        resetButtonLoading(btn);
     }
     
-    btn.disabled = false;
+    if (!btn.classList.contains('is-loading')) btn.disabled = false;
 });
 
 document.querySelector('#save-membership-groups')?.addEventListener('click', async () => {
@@ -1028,9 +1313,7 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
         return;
     }
     
-    btn.disabled = true;
-    const originalText = btn.textContent;
-    btn.textContent = 'Saving...';
+    setButtonLoading(btn, 'Saving...');
     
     try {
         const res = await fetch(appUrl('/api/settings/membership-groups'), {
@@ -1043,16 +1326,16 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
         
         if (res.ok && data.status === 'success') {
             showNotification('Membership groups updated successfully');
-            btn.textContent = 'Saved ✓';
-            setTimeout(() => { btn.textContent = originalText; }, 2000);
+            btn.textContent = 'Saved';
+            setTimeout(() => resetButtonLoading(btn), 2000);
         } else {
             showNotification('Failed to update membership groups', 'error');
-            btn.textContent = originalText;
+            resetButtonLoading(btn);
         }
     } catch (err) {
         showNotification('Failed to update membership groups', 'error');
-        btn.textContent = originalText;
+        resetButtonLoading(btn);
     }
     
-    btn.disabled = false;
+    if (!btn.classList.contains('is-loading')) btn.disabled = false;
 });

@@ -44,6 +44,38 @@
         @if ($currentView === 'attendance' && $sessions->hasPages())<div class="history-pagination">{{ $sessions->links() }}</div>@endif
         @if ($currentView === 'members' && $users->hasPages())<nav class="history-pagination attendance-pagination user-pagination" aria-label="User pages"><span class="history-pagination-summary">Showing {{ $users->firstItem() }}-{{ $users->lastItem() }} of {{ $users->total() }}</span><div class="history-pagination-controls">@if ($users->onFirstPage())<span class="pagination-control disabled">Previous</span>@else<a class="pagination-control" href="{{ $users->previousPageUrl() }}">Previous</a>@endif @foreach ($users->getUrlRange(max(1, $users->currentPage() - 1), min($users->lastPage(), $users->currentPage() + 1)) as $page => $url) @if ($page === $users->currentPage())<span class="pagination-control current" aria-current="page">{{ $page }}</span>@else<a class="pagination-control" href="{{ $url }}">{{ $page }}</a>@endif @endforeach @if ($users->hasMorePages())<a class="pagination-control" href="{{ $users->nextPageUrl() }}">Next</a>@else<span class="pagination-control disabled">Next</span>@endif</div></nav>@endif
         @if ($currentView === 'attendance' && $sessions->hasPages())<nav class="history-pagination attendance-pagination" aria-label="Attendance pages"><span class="history-pagination-summary">Showing {{ $sessions->firstItem() }}–{{ $sessions->lastItem() }} of {{ $sessions->total() }}</span><div class="history-pagination-controls">@if ($sessions->onFirstPage())<span class="pagination-control disabled">Previous</span>@else<a class="pagination-control" href="{{ $sessions->previousPageUrl() }}">Previous</a>@endif @foreach ($sessions->getUrlRange(max(1, $sessions->currentPage() - 1), min($sessions->lastPage(), $sessions->currentPage() + 1)) as $page => $url) @if ($page === $sessions->currentPage())<span class="pagination-control current" aria-current="page">{{ $page }}</span>@else<a class="pagination-control" href="{{ $url }}">{{ $page }}</a>@endif @endforeach @if ($sessions->hasMorePages())<a class="pagination-control" href="{{ $sessions->nextPageUrl() }}">Next</a>@else<span class="pagination-control disabled">Next</span>@endif</div></nav>@endif
+        <div class="page-view hidden archive-page" data-page="attendance">
+            <section class="panel archive-panel">
+                <div class="panel-heading"><div><span class="section-kicker">Session management</span><h2>Manage attendance</h2></div><span class="muted">Archive sessions you no longer need in the active list</span></div>
+                @foreach ($sessions as $session)
+                    <div class="archive-row" data-archive-row><div><strong>{{ $session->name }}</strong><span>{{ $session->started_at->format('d M Y · h:i A') }} · {{ $session->records->count() }} attended</span></div><button class="row-action archive-session" data-url="{{ url('/api/attendance/sessions/' . $session->id . '/archive') }}" type="button">Archive</button></div>
+                @endforeach
+            </section>
+            <section class="panel archive-panel">
+                <div class="panel-heading"><div><span class="section-kicker">Session management</span><h2>Archived attendance</h2></div><span class="muted">Restore or permanently remove sessions</span></div>
+                @forelse ($archivedSessions as $session)
+                    <div class="archive-row" data-archive-row><div><strong>{{ $session->name }}</strong><span>{{ $session->started_at->format('d M Y · h:i A') }} · {{ $session->records->count() }} attended</span></div><div class="row-actions"><button class="row-action restore-session" data-url="{{ url('/api/attendance/sessions/' . $session->id . '/restore') }}" type="button">Restore</button><button class="row-action force-delete-session" data-url="{{ url('/api/attendance/sessions/' . $session->id) }}" type="button">Delete</button></div></div>
+                @empty
+                    <p class="muted archive-empty">No archived attendance sessions.</p>
+                @endforelse
+            </section>
+        </div>
+        <div class="page-view hidden archive-page" data-page="members">
+            <section class="panel archive-panel">
+                <div class="panel-heading"><div><span class="section-kicker">User management</span><h2>Manage users</h2></div><span class="muted">Archive users to remove them from active lists</span></div>
+                @foreach ($users as $managedUser)
+                    @if ($managedUser->id !== auth()->id())<div class="archive-row" data-archive-row><div><strong>{{ $managedUser->name }}</strong><span>{{ ucfirst($managedUser->role) }} · {{ $managedUser->email }}</span></div><button class="row-action archive-user" data-url="{{ url('/api/users/' . $managedUser->id . '/archive') }}" type="button">Archive</button></div>@endif
+                @endforeach
+            </section>
+            <section class="panel archive-panel">
+                <div class="panel-heading"><div><span class="section-kicker">User management</span><h2>Archived users</h2></div><span class="muted">Restore or permanently remove users</span></div>
+                @forelse ($archivedUsers as $archivedUser)
+                    <div class="archive-row" data-archive-row><div><strong>{{ $archivedUser->name }}</strong><span>{{ ucfirst($archivedUser->role) }} · {{ $archivedUser->email }}</span></div><div class="row-actions"><button class="row-action restore-user" data-url="{{ url('/api/users/' . $archivedUser->id . '/restore') }}" type="button">Restore</button><button class="row-action force-delete-user" data-url="{{ url('/api/users/' . $archivedUser->id) }}" type="button">Delete</button></div></div>
+                @empty
+                    <p class="muted archive-empty">No archived users.</p>
+                @endforelse
+            </section>
+        </div>
     </main>
 </div>
 <div class="modal-backdrop" id="scanner-modal" aria-hidden="true"><section class="modal scanner-modal" role="dialog" aria-modal="true" aria-labelledby="scanner-title"><button class="modal-close" data-close-modal aria-label="Close scanner">×</button><div class="scanner-copy"><span class="section-kicker">Session live <span class="pulse"></span></span><h2 id="scanner-title">Scan member QR</h2><p class="muted">Point the camera at a member card. We will check for a new arrival every 3 seconds.</p><div class="scanner-meta"><span><b class="live-dot"></b> Camera ready</span><span>Morning worship · 08:00 AM</span></div></div><div class="camera-frame"><div class="camera-guide"><i></i><i></i><i></i><i></i><div class="scan-line"></div><span id="scanner-message">Position QR inside frame</span></div><div class="camera-bottom"><span>● Auto-scan on</span><span>Next check in <b id="scan-countdown">3</b>s</span></div></div><div class="modal-footer"><button class="button button-light" data-close-modal>End session</button><button class="button button-dark" data-close-modal>Done</button></div></section></div>
@@ -55,13 +87,18 @@
 <div class="modal-backdrop" id="delete-confirm-modal" aria-hidden="true">
     <section class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-desc">
         <div class="confirm-icon">⚠</div>
-        <h2 id="delete-confirm-title">Delete member?</h2>
-        <p id="delete-confirm-desc" class="muted">This will permanently remove the member and all their attendance history. This action cannot be undone.</p>
+        <h2 id="delete-confirm-title">Archive member?</h2>
+        <p id="delete-confirm-desc" class="muted">The member will leave the active directory. You can restore them from user management.</p>
         <div class="confirm-actions">
             <button class="button button-quiet" id="delete-cancel-btn" type="button">Cancel</button>
-            <button class="button button-danger" id="delete-confirm-btn" type="button">Delete member</button>
+            <button class="button button-danger" id="delete-confirm-btn" type="button">Archive member</button>
         </div>
     </section>
 </div>
+<script>
+    window.activeSessionIds = @json($sessions->pluck('id')->values());
+    window.activeUserIds = @json($users->pluck('id')->values());
+    window.currentUserId = {{ auth()->id() }};
+</script>
 </body>
 </html>

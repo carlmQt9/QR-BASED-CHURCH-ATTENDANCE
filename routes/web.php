@@ -23,10 +23,10 @@ Route::get('/dashboard', function () {
     if ($user->role === 'leader') {
         return view('leader', [
             'members' => User::where('role', 'member')->orderBy('name')->get(['id', 'name']), 
-            'sessions' => AttendanceSession::with('records.member')->where('started_by', $user->id)->latest('started_at')->get(), 
-            'activeSession' => AttendanceSession::with('records.member')->where('started_by', $user->id)->where(function ($query) {
+            'sessions' => AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->orderByDesc('started_at')->orderByDesc('id')->get(), 
+            'activeSession' => AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->where(function ($query) {
                 $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
-            })->latest('started_at')->first(),
+            })->orderByDesc('started_at')->orderByDesc('id')->first(),
             'gatheringTypes' => Setting::get('gathering_types', ['Sunday worship', 'Prayer meeting', 'Youth fellowship']),
             'membershipGroups' => Setting::get('membership_groups', ['General congregation', 'Volunteer team', 'Youth ministry'])
         ]);
@@ -39,8 +39,10 @@ Route::get('/dashboard', function () {
         ->latest()
         ->paginate(7)
         ->withQueryString();
-    $allSessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->get();
-    $sessions = AttendanceSession::with('records.member', 'leader')->latest('started_at')->paginate(3)->withQueryString();
+    $allSessions = AttendanceSession::with('records.member', 'leader')->orderByDesc('started_at')->orderByDesc('id')->get();
+    $sessions = AttendanceSession::with('records.member', 'leader')->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString();
+    $archivedSessions = AttendanceSession::onlyTrashed()->with('records.member', 'leader')->latest('deleted_at')->get();
+    $archivedUsers = User::onlyTrashed()->orderBy('name')->get();
     $todaySessions = $allSessions->filter(fn ($session) => $session->started_at->isToday())->take(5);
     $recentCheckIns = AttendanceRecord::with(['member', 'session'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(5)->get();
     $attendanceCount = AttendanceRecord::whereDate('checked_in_at', today())->count();
@@ -57,7 +59,7 @@ Route::get('/dashboard', function () {
     $returningMembers = AttendanceRecord::whereBetween('checked_in_at', [now()->startOfMonth(), now()->endOfMonth()])->distinct('user_id')->count('user_id');
     $returningRate = $memberCount ? round(($returningMembers / $memberCount) * 100) : 0;
     $reportData = app(ReportController::class)->reportData(request());
-    $reportSessions = AttendanceSession::query()->latest('started_at')->get(['id', 'name', 'type']);
+    $reportSessions = AttendanceSession::query()->orderByDesc('started_at')->orderByDesc('id')->get(['id', 'name', 'type']);
     $dashboardData = ['trend' => $attendanceTrend, 'todayCount' => $attendanceCount, 'memberCount' => $memberCount, 'sessions' => $todaySessions->map(fn ($session) => ['time' => $session->started_at->format('h:i A'), 'name' => $session->name, 'location' => $session->location ?: 'Main campus', 'type' => $session->type, 'count' => $session->records->count()]), 'checkIns' => $recentCheckIns->map(fn ($record) => ['name' => $record->member->name, 'session' => $record->session->name, 'time' => $record->checked_in_at->format('h:i A')])];
     return view('welcome', [
         'currentView' => $currentView, 
@@ -65,6 +67,8 @@ Route::get('/dashboard', function () {
         'users' => $users,
         'memberCount' => $memberCount, 
         'sessions' => $sessions, 
+        'archivedSessions' => $archivedSessions,
+        'archivedUsers' => $archivedUsers,
         'todaySessions' => $todaySessions, 
         'recentCheckIns' => $recentCheckIns, 
         'attendanceTrend' => $attendanceTrend, 
@@ -94,8 +98,9 @@ Route::get('/leader/history', function () {
     /** @var User|null $user */
     $user = Auth::user();
     abort_unless($user?->role === 'leader' && $user->isApproved(), 403);
+    $leaderId = $user->getAuthIdentifier();
 
-    return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->where('started_by', $user->id)->latest('started_at')->paginate(3)->withQueryString()]);
+    return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->whereNull('deleted_at')->where('started_by', $leaderId)->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString()]);
 })->middleware('auth')->name('leader.history');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -135,10 +140,16 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::get('/admin/dashboard', [AttendanceController::class, 'adminDashboard']);
     Route::post('/attendance/sessions', [AttendanceController::class, 'start']);
     Route::post('/attendance/sessions/{session}/end', [AttendanceController::class, 'end']);
+    Route::post('/attendance/sessions/{session}/archive', [AttendanceController::class, 'archiveSession']);
+    Route::post('/attendance/sessions/{session}/restore', [AttendanceController::class, 'restoreSession']);
+    Route::delete('/attendance/sessions/{session}', [AttendanceController::class, 'forceDeleteSession']);
     Route::post('/attendance/check-ins', [AttendanceController::class, 'checkIn']);
     Route::post('/attendance/manual-check-ins', [AttendanceController::class, 'manualCheckIn']);
     Route::post('/members', [AttendanceController::class, 'storeMember']);
     Route::delete('/members/{member}', [AttendanceController::class, 'destroyMember']);
+    Route::post('/users/{user}/archive', [AttendanceController::class, 'archiveUser']);
+    Route::post('/users/{user}/restore', [AttendanceController::class, 'restoreUser']);
+    Route::delete('/users/{user}', [AttendanceController::class, 'forceDeleteUser']);
     Route::post('/settings/gathering-types', function (Request $request) {
         /** @var User|null $user */
         $user = $request->user();

@@ -33,7 +33,7 @@ class AttendanceController extends Controller
         abort_unless(request()->user()?->isSuperAdmin(), 403);
         $todayCount = AttendanceRecord::whereDate('checked_in_at', today())->count();
         $memberCount = User::where('role', 'member')->count();
-        $sessions = AttendanceSession::withCount('records')->whereDate('started_at', today())->latest('started_at')->limit(5)->get();
+        $sessions = AttendanceSession::withCount('records')->whereDate('started_at', today())->orderByDesc('started_at')->orderByDesc('id')->limit(5)->get();
         $records = AttendanceRecord::with(['member:id,name', 'session:id,name'])->whereDate('checked_in_at', today())->latest('checked_in_at')->limit(5)->get();
         $trendRecords = AttendanceRecord::whereBetween('checked_in_at', [now()->subDays(6)->startOfDay(), now()->endOfDay()])->get();
         $trend = collect(range(0, 6))->map(function ($index) use ($trendRecords) {
@@ -66,12 +66,12 @@ class AttendanceController extends Controller
     public function checkIn(Request $request): JsonResponse
     {
         $validated = $request->validate(['session_id' => ['required', 'exists:attendance_sessions,id'], 'qr_token' => ['required', 'string']]);
-        $member = User::query()->where('qr_token', $validated['qr_token'])->where('role', 'member')->first();
+        $member = User::query()->whereNull('deleted_at')->where('qr_token', $validated['qr_token'])->where('role', 'member')->first();
         if (! $member) {
             return response()->json(['status' => 'failed', 'message' => 'QR code not recognized.'], 422);
         }
 
-        $session = AttendanceSession::findOrFail($validated['session_id']);
+        $session = AttendanceSession::query()->whereNull('deleted_at')->findOrFail($validated['session_id']);
         if ($session->ended_at && $session->ended_at->isPast()) {
             return response()->json(['status' => 'failed', 'message' => 'This attendance session has ended.'], 422);
         }
@@ -135,6 +135,56 @@ class AttendanceController extends Controller
         abort_unless($request->user()?->isSuperAdmin() && $member->role === 'member', 403);
         $member->delete();
 
-        return response()->json(['deleted' => true, 'member_id' => $member->id]);
+        return response()->json(['archived' => true, 'member_id' => $member->id]);
+    }
+
+    public function archiveSession(Request $request, int $session): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        AttendanceSession::query()->findOrFail($session)->delete();
+
+        return response()->json(['archived' => true, 'session_id' => $session]);
+    }
+
+    public function restoreSession(Request $request, int $session): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        AttendanceSession::withTrashed()->findOrFail($session)->restore();
+
+        return response()->json(['restored' => true, 'session_id' => $session]);
+    }
+
+    public function forceDeleteSession(Request $request, int $session): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        AttendanceSession::withTrashed()->findOrFail($session)->forceDelete();
+
+        return response()->json(['deleted' => true, 'session_id' => $session]);
+    }
+
+    public function archiveUser(Request $request, int $user): JsonResponse
+    {
+        $admin = $request->user();
+        abort_unless($admin?->isSuperAdmin() && $admin->id !== $user, 403);
+        User::query()->findOrFail($user)->delete();
+
+        return response()->json(['archived' => true, 'user_id' => $user]);
+    }
+
+    public function restoreUser(Request $request, int $user): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        User::withTrashed()->findOrFail($user)->restore();
+
+        return response()->json(['restored' => true, 'user_id' => $user]);
+    }
+
+    public function forceDeleteUser(Request $request, int $user): JsonResponse
+    {
+        $admin = $request->user();
+        abort_unless($admin?->isSuperAdmin() && $admin->id !== $user, 403);
+        User::withTrashed()->findOrFail($user)->forceDelete();
+
+        return response()->json(['deleted' => true, 'user_id' => $user]);
     }
 }
