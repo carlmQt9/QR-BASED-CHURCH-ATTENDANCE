@@ -1,22 +1,39 @@
-# ============================================================
-# Laravel deployment for InfinityFree / shared hosting
-# The web root (htdocs) is the project root, so every request
-# is routed into the /public directory where Laravel lives.
-# ============================================================
-
 <IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
     RewriteEngine On
 
-    # --- Block direct access to sensitive files ---
+    # --- Block direct access to sensitive files and folders ---
     RewriteRule ^\.env - [F,L,NC]
+    RewriteRule ^(app|bootstrap|config|database|routes|storage|tests|vendor)(/|$) - [F,L,NC]
 
-    # --- Send everything that is not a real root-level file into /public ---
-    # /            -> public/index.php  (via public/.htaccess)
-    # /login       -> public/index.php  (via public/.htaccess)
-    # /build/...   -> public/build/...  (Vite assets served directly)
+    # --- Serve static assets that physically live in /public ---
+    # Vite build files, favicon, robots.txt are inside public/ but the
+    # app requests them from the root (/build/...). This serves them
+    # directly WITHOUT needing any .env changes.
     RewriteCond %{REQUEST_URI} !^/public/
-    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f
     RewriteRule ^(.*)$ public/$1 [L]
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
 </IfModule>
 
 # --- Never serve these files directly ---
@@ -30,5 +47,3 @@
     </IfModule>
 </FilesMatch>
 
-# --- Disable directory listing ---
-Options -Indexes
