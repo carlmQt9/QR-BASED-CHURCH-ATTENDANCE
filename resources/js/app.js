@@ -634,7 +634,25 @@ document.querySelector('#member-cards')?.addEventListener('click', e => {
 
 // ─── Add member & generate QR ──────────────────────────────────────────────────
 function normalizeMemberActionIcons(scope = document) {
-    scope.querySelectorAll('.row-actions').forEach(actions => {
+    const actionGroups = scope.matches?.('.row-actions')
+        ? [scope]
+        : scope.matches?.('.directory-row')
+            ? scope.querySelectorAll('.row-actions')
+            : scope.querySelectorAll('.member-directory .directory-row .row-actions');
+    actionGroups.forEach(actions => {
+        const row = actions.closest('.directory-row');
+        const memberId = row?.dataset.memberId;
+        const legacyDelete = actions.querySelector('.delete-member');
+        const permanentDelete = actions.querySelector('.force-delete-user') || legacyDelete;
+        legacyDelete?.classList.remove('delete-member');
+        permanentDelete?.classList.add('force-delete-user');
+        if (permanentDelete) {
+            permanentDelete.dataset.method = 'DELETE';
+            if (memberId) permanentDelete.dataset.url = `/api/users/${memberId}`;
+        }
+        actions.querySelectorAll('.row-action').forEach(button => {
+            if (!button.matches('.view-qr, .archive-user, .force-delete-user')) button.remove();
+        });
         const qr = actions.querySelector('.view-qr');
         if (qr) {
             qr.setAttribute('aria-label', 'View member QR code');
@@ -646,12 +664,6 @@ function normalizeMemberActionIcons(scope = document) {
             archive.setAttribute('aria-label', 'Archive user');
             archive.title = 'Archive user';
             archive.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg>';
-        }
-        const deleteButton = actions.querySelector('.delete-member');
-        if (deleteButton) {
-            deleteButton.setAttribute('aria-label', 'Delete member');
-            deleteButton.title = 'Delete member';
-            deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
         }
         const forceDelete = actions.querySelector('.force-delete-user');
         if (forceDelete) {
@@ -704,10 +716,12 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             row.dataset.memberId = m.id;
             row.innerHTML =
                 '<div class="member-cell"><div class="member-avatar"></div><strong></strong></div>' +
-                '<span></span><span class="tag">QR active</span>' +
-                '<div class="row-actions"><button class="row-action view-qr" type="button" aria-label="View member QR code" title="View member QR code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg></button>' +
+                '<span></span><span class="tag role-tag">Member</span>' +
+                '<div class="row-actions">' +
+                '<button class="row-action view-qr" data-name="" data-code="" data-token="" type="button" aria-label="View member QR code" title="View member QR code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg></button>' +
                 '<button class="row-action archive-user" data-url="/api/users/' + m.id + '/archive" type="button" aria-label="Archive user" title="Archive user"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg></button>' +
-                '<button class="row-action force-delete-user" data-url="/api/users/' + m.id + '" data-method="DELETE" type="button" aria-label="Delete user permanently" title="Delete user permanently"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>';
+                '<button class="row-action force-delete-user" data-url="/api/users/' + m.id + '" data-method="DELETE" type="button" aria-label="Delete user permanently" title="Delete user permanently"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>' +
+                '</div>';
             row.querySelector('.member-avatar').textContent = m.name.split(' ').map(p => p[0]).join('').slice(0, 2);
             row.querySelector('strong').textContent         = m.name;
             row.querySelector('span:not(.tag)').textContent = `Member since ${new Date().getFullYear()}`;
@@ -715,7 +729,6 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             row.querySelector('.view-qr').dataset.code  = m.member_code;
             row.querySelector('.view-qr').dataset.token = m.qr_token;
             cards.prepend(row);
-            normalizeMemberActionIcons(row);
             const cnt = document.querySelector('#member-count');
             if (cnt) cnt.textContent = `${cards.querySelectorAll('.directory-row').length} active members`;
             bindMemberActions(row);
@@ -825,6 +838,31 @@ async function runArchiveAction(button, message) {
             const activeItem = button.closest('.history-session, .directory-row');
             activeItem?.remove();
             showNotification(button.classList.contains('archive-user') ? 'User archived successfully.' : 'Attendance session archived successfully.');
+            
+            // Update member count after archive
+            if (button.classList.contains('archive-user')) {
+                const cnt = document.querySelector('#member-count');
+                if (cnt) {
+                    const cards = document.querySelector('#member-cards');
+                    if (cards) {
+                        const memberCount = cards.querySelectorAll('.directory-row').length;
+                        cnt.textContent = `${memberCount} active member${memberCount !== 1 ? 's' : ''}`;
+                    }
+                }
+            }
+            
+            // Update session display after archive
+            if (button.classList.contains('archive-session')) {
+                const sessionHistory = document.querySelector('.session-history');
+                if (sessionHistory) {
+                    const remainingSessions = sessionHistory.querySelectorAll('.history-session').length;
+                    // If no sessions left, show empty state
+                    if (remainingSessions === 0) {
+                        sessionHistory.innerHTML = '<section class="panel empty-history"><h2>No attendance sessions yet.</h2><p class="muted">Leader-created gatherings will appear here after they begin.</p></section>';
+                    }
+                }
+            }
+            
             return;
         }
         if (button.classList.contains('restore-session') || button.classList.contains('restore-user')) {
@@ -833,7 +871,34 @@ async function runArchiveAction(button, message) {
             window.location.href = `${window.location.pathname}?view=${view}`;
             return;
         }
-        button.closest('[data-archive-row]')?.remove();
+        // Handle force delete - remove from archive modal, main directory, or session history
+        const rowToRemove = button.closest('[data-archive-row]') || button.closest('.directory-row') || button.closest('.history-session');
+        rowToRemove?.remove();
+        
+        // Update member count after user delete
+        if (button.classList.contains('force-delete-user')) {
+            const cnt = document.querySelector('#member-count');
+            if (cnt) {
+                const cards = document.querySelector('#member-cards');
+                if (cards) {
+                    const memberCount = cards.querySelectorAll('.directory-row').length;
+                    cnt.textContent = `${memberCount} active member${memberCount !== 1 ? 's' : ''}`;
+                }
+            }
+        }
+        
+        // Update session count or display after session delete
+        if (button.classList.contains('force-delete-session')) {
+            const sessionHistory = document.querySelector('.session-history');
+            if (sessionHistory) {
+                const remainingSessions = sessionHistory.querySelectorAll('.history-session').length;
+                // If no sessions left, show empty state
+                if (remainingSessions === 0) {
+                    sessionHistory.innerHTML = '<section class="panel empty-history"><h2>No attendance sessions yet.</h2><p class="muted">Leader-created gatherings will appear here after they begin.</p></section>';
+                }
+            }
+        }
+        
         showNotification(button.classList.contains('force-delete-user') ? 'User permanently deleted.' : button.classList.contains('force-delete-session') ? 'Attendance session permanently deleted.' : button.dataset.successMessage || 'Action completed successfully');
     } catch (_) {
         resetButtonLoading(button);
@@ -924,23 +989,40 @@ function bindMemberActions(scope = document) {
 }
 bindMemberActions();
 
-// ─── Approve users ─────────────────────────────────────────────────────────────
+// ─── Approve / Decline users ───────────────────────────────────────────────────
 document.querySelectorAll('.approve-user').forEach(btn =>
     btn.addEventListener('click', async () => {
         const approvalRow = btn.closest('.approval-row');
         const userName = approvalRow.querySelector('strong')?.textContent || 'User';
-        
         btn.disabled = true;
         const res = await fetch(btn.dataset.url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
         if (res.ok) {
             approvalRow.remove();
             if (!document.querySelector('.approval-row'))
                 document.querySelector('#approval-list').innerHTML = '<p class="muted">No leader accounts are waiting for approval.</p>';
-            showNotification(`${userName} has been approved as a leader`);
+            showNotification(`${userName} approved as a leader`);
         } else {
+            btn.disabled = false;
             showNotification('Failed to approve user. Please try again.', 'error');
         }
-        resetButtonLoading(document.querySelector('#end-session-confirm-btn'));
+    })
+);
+
+document.querySelectorAll('.decline-user').forEach(btn =>
+    btn.addEventListener('click', async () => {
+        const approvalRow = btn.closest('.approval-row');
+        const userName = approvalRow.querySelector('strong')?.textContent || 'User';
+        btn.disabled = true;
+        const res = await fetch(btn.dataset.url, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf() } });
+        if (res.ok) {
+            approvalRow.remove();
+            if (!document.querySelector('.approval-row'))
+                document.querySelector('#approval-list').innerHTML = '<p class="muted">No leader accounts are waiting for approval.</p>';
+            showNotification(`${userName} has been declined`, 'error');
+        } else {
+            btn.disabled = false;
+            showNotification('Failed to decline user. Please try again.', 'error');
+        }
     })
 );
 
@@ -1080,37 +1162,8 @@ if (archivePages.length) {
         actions.querySelector('.archive-session').addEventListener('click', event => openArchiveConfirm(event.currentTarget, 'Archiving...', 'Archive this attendance session?'));
         actions.querySelector('.force-delete-session').addEventListener('click', event => openArchiveConfirm(event.currentTarget, 'Deleting...', 'Permanently delete this attendance session? This cannot be undone.'));
     });
-    const userIds = window.activeUserIds || [];
-    document.querySelectorAll('[data-page="members"] #member-cards .directory-row').forEach((row, index) => {
-        const userId = userIds[index];
-        if (!userId || userId === window.currentUserId) return;
-        row.querySelector('.delete-member')?.remove();
-        const actions = row.querySelector('.row-actions');
-        if (!actions) return;
-        const qrButton = actions.querySelector('.view-qr');
-        if (qrButton) {
-            qrButton.setAttribute('aria-label', 'View member QR code');
-            qrButton.title = 'View member QR code';
-            qrButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg>';
-        }
-        const archiveButton = document.createElement('button');
-        archiveButton.className = 'row-action archive-user';
-        archiveButton.dataset.url = `/api/users/${userId}/archive`;
-        archiveButton.type = 'button';
-        archiveButton.setAttribute('aria-label', 'Archive user');
-        archiveButton.title = 'Archive user';
-        archiveButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg>';
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'row-action force-delete-user';
-        deleteButton.dataset.url = `/api/users/${userId}`;
-        deleteButton.dataset.method = 'DELETE';
-        deleteButton.type = 'button';
-        deleteButton.setAttribute('aria-label', 'Delete user permanently');
-        deleteButton.title = 'Delete user permanently';
-        deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 4h4l1 3H9zM7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
-        actions.append(archiveButton, deleteButton);
-        archiveButton.addEventListener('click', () => openArchiveConfirm(archiveButton, 'Archiving...', 'Archive this user?'));
-        deleteButton.addEventListener('click', () => openArchiveConfirm(deleteButton, 'Deleting...', 'Permanently delete this user? This cannot be undone.'));
+    document.querySelectorAll('[data-page="members"] #member-cards .directory-row').forEach(row => {
+        normalizeMemberActionIcons(row);
     });
 }
 document.querySelector('.admin-dashboard .history-pagination:not(.attendance-pagination)')?.remove();

@@ -133,6 +133,15 @@ Route::middleware('auth')->group(function () {
             ? response()->json(['approved' => true, 'user_id' => $user->id])
             : back()->with('status', $user->name . ' is now approved.');
     })->name('admin.approvals.approve');
+    Route::delete('/admin/approvals/{user}', function (Request $request, User $user) {
+        /** @var User $admin */
+        $admin = Auth::user();
+        abort_unless($admin->isSuperAdmin(), 403);
+        $user->forceDelete();
+        return $request->expectsJson()
+            ? response()->json(['declined' => true, 'user_id' => $user->id])
+            : back()->with('status', $user->name . ' has been declined and removed.');
+    })->name('admin.approvals.decline');
 });
 
 Route::prefix('api')->middleware('auth')->group(function () {

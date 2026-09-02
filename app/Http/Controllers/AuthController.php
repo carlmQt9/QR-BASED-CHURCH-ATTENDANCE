@@ -44,7 +44,7 @@ class AuthController extends Controller
         $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'unique:users,email'], 'role' => ['required', 'in:leader,admin'], 'password' => ['required', 'confirmed', 'min:8']]);
         User::create([...$validated, 'approval_status' => 'pending']);
 
-        return redirect()->route('login')->with('status', 'Account created. A super admin must approve your access before you can sign in.');
+        return redirect()->route('login')->with('registration_success', 'Account created successfully! Please wait for admin approval before signing in.');
     }
 
     public function logout(Request $request): RedirectResponse
