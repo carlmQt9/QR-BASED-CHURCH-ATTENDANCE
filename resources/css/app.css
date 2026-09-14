@@ -24,7 +24,7 @@
 @media(max-width:680px){html,body{max-width:100%;overflow-x:hidden}.leader-page .session-builder{width:100%;overflow:hidden}.leader-page .session-form{grid-template-columns:1fr!important;width:100%;gap:14px}.leader-page .session-form label,.leader-page .session-form input,.leader-page .session-form select,.leader-page .session-form .duration-control,.leader-page .start-session{width:100%;min-width:0}.leader-page .start-session{white-space:normal;line-height:1.3;padding:12px 14px}.leader-page .builder-intro{width:100%}.leader-page .builder-intro h2{font-size:23px}}
 @media(max-width:680px){.leader-page .leader-live{display:block!important;width:100%;padding:19px 16px;overflow:hidden}.leader-page .leader-live>div{width:100%;min-width:0}.leader-page .leader-live .session-status{display:grid;width:100%;gap:8px;border-left:0;border-top:1px solid #353535;padding:16px 0 0;margin:18px 0 0}.leader-page .leader-live .session-status .button{display:flex;width:100%;height:40px;min-height:40px;justify-content:center;align-items:center;margin:0}.leader-page .leader-live h2{font-size:20px;line-height:1.25;overflow-wrap:anywhere}.leader-page .leader-live .muted{overflow-wrap:anywhere}.leader-page .big-count{margin-top:24px}}
 @media(max-width:680px){.admin-dashboard .chart-panel,.admin-dashboard .service-panel{width:100%;min-width:0;overflow:hidden}.admin-dashboard .chart-wrap{height:205px;min-height:205px;width:100%;min-width:0}.admin-dashboard .chart{min-width:0;width:calc(100% - 32px)}.admin-dashboard .chart svg{width:100%;height:100%}.admin-dashboard .x-axis{font-size:8px;gap:0}.admin-dashboard .x-axis span{min-width:0;flex:1;text-align:center}.admin-dashboard .y-axis{width:25px;font-size:8px;flex-shrink:0}.admin-dashboard .service-panel .panel-heading{align-items:flex-start}.admin-dashboard .service-panel .panel-heading .text-button{font-size:10px;white-space:nowrap}.admin-dashboard .service-row{width:100%;max-width:100%;grid-template-columns:62px minmax(0,1fr) 42px}.admin-dashboard .service-info{min-width:0}.admin-dashboard .service-info strong,.admin-dashboard .service-info span{max-width:100%}.admin-dashboard .service-count{min-width:0;overflow-wrap:anywhere}}
-@media(max-width:680px){.admin-dashboard .member-directory{width:100%;overflow:hidden}.admin-dashboard .member-cards{width:100%}.admin-dashboard .directory-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:12px 0}.admin-dashboard .directory-row .member-cell{min-width:0}.admin-dashboard .directory-row .member-cell strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-dashboard .directory-row .tag{display:none}.admin-dashboard .directory-row .row-actions{display:flex;grid-column:2;grid-row:1;gap:5px}.admin-dashboard .directory-row .row-action{width:36px;height:30px;padding:0;display:grid;place-items:center}.admin-dashboard .directory-row .delete-member{font-size:12px}.admin-dashboard #member-count{font-size:9px}}
+@media(max-width:680px){.admin-dashboard .member-directory{width:100%;overflow:hidden}.admin-dashboard .member-cards{width:100%}.admin-dashboard .directory-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:12px 0}.admin-dashboard .directory-row .member-cell{min-width:0}.admin-dashboard .directory-row .member-cell strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.admin-dashboard .directory-row .role-tag{display:block;grid-column:1;grid-row:2;justify-self:start;margin-top:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;padding:3px 6px}.admin-dashboard .directory-row .tag{display:none}.admin-dashboard .directory-row .row-actions{display:flex;grid-column:2;grid-row:1;gap:5px}.admin-dashboard .directory-row .row-action{width:36px;height:30px;padding:0;display:grid;place-items:center}.admin-dashboard .directory-row .delete-member{font-size:12px}.admin-dashboard #member-count{font-size:9px}}
 @media(max-width:680px){.admin-dashboard .report-grid{gap:8px}.admin-dashboard .report-card{min-height:0;height:auto;padding:16px 14px 14px}.admin-dashboard .report-card strong{font-size:34px;line-height:1;margin:15px 0 10px}.admin-dashboard .report-card>.muted{font-size:10px}.admin-dashboard .report-bar{height:5px;margin-top:15px}.admin-dashboard .dashboard-view-reports [data-page="reports"] .page-heading{margin-bottom:18px}.admin-dashboard .dashboard-view-reports [data-page="reports"] .page-heading h1{font-size:26px}}
 @media(max-width:680px){.admin-dashboard .report-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}.admin-dashboard .report-card{text-align:center;min-width:0;min-height:145px;height:100%;padding:15px 10px 13px}.admin-dashboard .report-card .section-kicker{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.admin-dashboard .report-card strong{font-size:28px;margin:13px 0 8px}.admin-dashboard .report-card>.muted{font-size:9px;line-height:1.3}.admin-dashboard .report-bar{width:100%;margin:13px auto 0}.admin-dashboard .report-toolbar{text-align:center}.admin-dashboard .report-toolbar form,.admin-dashboard .report-actions{justify-items:center}.admin-dashboard .report-toolbar label{width:100%;text-align:center}.admin-dashboard .report-toolbar select,.admin-dashboard .report-toolbar form .button,.admin-dashboard .report-actions .button{width:min(100%,290px)}.admin-dashboard .report-summary{justify-content:center;text-align:center;flex-wrap:wrap}.admin-dashboard .report-records .table-head{text-align:left}}
 @media(max-width:680px){.admin-dashboard .report-card:nth-child(3){grid-column:1/-1}}
@@ -439,6 +439,10 @@ body{color:#171717}.muted,.form-intro,.breadcrumb,.service-info span,.service-co
     text-align: center !important;
 }
 
+.member-directory .directory-row .mobile-role-tag {
+    display: none;
+}
+
 .member-directory .directory-row .row-actions {
     justify-self: end !important;
 }
@@ -458,13 +462,34 @@ body{color:#171717}.muted,.form-intro,.breadcrumb,.service-info span,.service-co
         gap: 10px !important;
     }
     
-    /* Hide date and role in mobile, keep only name and buttons */
+    /* Hide the date and use the compact identity block for the group. */
     .member-directory .directory-row > span:not(.role-tag) {
         display: none !important;
     }
     
     .member-directory .directory-row .role-tag {
         display: none !important;
+    }
+
+    .member-directory .directory-row .member-identity {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+    }
+
+    .member-directory .directory-row .mobile-role-tag {
+        display: block;
+        justify-self: start;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        background: #edf4ef;
+        border-radius: 4px;
+        color: #31543c;
+        font: 8px 'DM Mono', monospace;
+        line-height: 1.2;
+        padding: 4px 8px;
     }
     
     /* Keep buttons on the same row as name */

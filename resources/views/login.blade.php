@@ -138,7 +138,7 @@
                     @csrf
                     <label>Email address<input type="email" name="email" value="{{ old('email') }}" placeholder="you@church.org" autocomplete="email" required></label>
                     <label>Password<div class="password-field"><input type="password" name="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></div></label>
-                    <div class="form-options"><label class="check-label"><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="#">Forgot password?</a></div>
+                    <div class="form-options"><label class="check-label"><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="{{ route('password.request') }}">Forgot password?</a></div>
                     <button class="auth-button" type="submit" data-loading-label="Signing in..."><span class="auth-button-label"><span class="auth-button-text">Sign in</span><span>↗</span></span><span class="auth-button-loader" aria-hidden="true"></span></button>
                 </form>
                 <p class="switch-auth">New to Gather? <a href="{{ route('register') }}">Create an account</a></p>

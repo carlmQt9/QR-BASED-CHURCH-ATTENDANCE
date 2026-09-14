@@ -85,7 +85,7 @@
                         <div class="directory-row" data-member-id="{{ $member->id }}">
                             <div class="member-cell">
                                 <div class="member-avatar">{{ collect(explode(' ', $member->name))->map(fn ($part) => substr($part, 0, 1))->join('') }}</div>
-                                <strong>{{ $member->name }}</strong>
+                                <div class="member-identity"><strong>{{ $member->name }}</strong><span class="mobile-role-tag">{{ $member->membership_group_display }}</span></div>
                             </div>
                             <span>Member since {{ $member->created_at->format('Y') }}</span>
                             <span class="tag role-tag">{{ $member->membership_group_display }}</span>
