@@ -1,0 +1,150 @@
+/* Fix dropdown styling to show proper select dropdowns instead of radio button interfaces */
+
+/* Ensure all select elements look like proper dropdowns */
+select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #fff !important;
+    border: 1px solid #e7e7e3 !important;
+    border-radius: 6px !important;
+    padding: 12px 35px 12px 12px !important;
+    font: 11px 'Manrope', sans-serif !important;
+    color: #111 !important;
+    cursor: pointer !important;
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px !important;
+}
+
+select:hover {
+    border-color: #999 !important;
+}
+
+select:focus {
+    outline: 2px solid #2563eb !important;
+    outline-offset: 2px !important;
+    border-color: #2563eb !important;
+}
+
+/* Fix auth form selects specifically */
+.auth-form-wrap select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 6px !important;
+    padding: 14px 40px 14px 14px !important;
+    font: 11px 'Manrope', sans-serif !important;
+    color: #111 !important;
+    width: 100% !important;
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 16px !important;
+}
+
+/* Fix member modal selects */
+.member-form select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #fff !important;
+    border: 1px solid #e7e7e3 !important;
+    border-radius: 6px !important;
+    padding: 11px 35px 11px 11px !important;
+    font: 11px 'Manrope', sans-serif !important;
+    color: #111 !important;
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 11px center !important;
+    background-size: 16px !important;
+}
+
+/* Fix report toolbar selects */
+.report-toolbar select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #fafaf8 !important;
+    border: 1px solid #e7e7e3 !important;
+    border-radius: 6px !important;
+    padding: 10px 35px 10px 10px !important;
+    font: 11px 'Manrope', sans-serif !important;
+    color: #111 !important;
+    cursor: pointer !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 16px !important;
+}
+
+/* Remove any radio button styling that might exist */
+.form-options,
+.radio-options,
+.choice-list,
+.option-list {
+    display: none !important;
+}
+
+/* Hide any custom radio button interfaces */
+.custom-radio,
+.radio-group,
+.radio-button,
+.choice-button {
+    display: none !important;
+}
+
+/* Override any dark modal radio button styling */
+.modal select,
+.modal-backdrop select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 6px !important;
+    padding: 12px 35px 12px 12px !important;
+    font: 11px 'Manrope', sans-serif !important;
+    color: #111 !important;
+    cursor: pointer !important;
+    display: block !important;
+    width: 100% !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px !important;
+}
+
+/* Force override any radio button lists with actual select dropdowns */
+div[data-radio-group],
+.radio-list,
+.choice-group {
+    display: none !important;
+}
+
+/* Ensure select containers don't have radio button styling */
+label:has(select) {
+    display: grid !important;
+    gap: 7px !important;
+}
+
+/* Mobile responsive fixes */
+@media (max-width: 680px) {
+    select {
+        padding: 12px 30px 12px 12px !important;
+        background-size: 14px !important;
+    }
+    
+    .auth-form-wrap select {
+        padding: 12px 35px 12px 12px !important;
+        background-size: 14px !important;
+    }
+}

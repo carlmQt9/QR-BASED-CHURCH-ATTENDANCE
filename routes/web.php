@@ -95,7 +95,7 @@ Route::get('/dashboard', function () {
         'gatheringTypes' => Setting::get('gathering_types', ['Sunday worship', 'Prayer meeting', 'Youth fellowship']),
         'membershipGroups' => Setting::get('membership_groups', ['General congregation', 'Volunteer team', 'Youth ministry'])
     ]);
-})->middleware('auth')->name('dashboard');
+})->middleware(['auth', 'approved'])->name('dashboard');
 
 Route::get('/leader/history', function () {
     /** @var User|null $user */
@@ -104,7 +104,7 @@ Route::get('/leader/history', function () {
     $leaderId = $user->getAuthIdentifier();
 
     return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->whereNull('deleted_at')->where('started_by', $leaderId)->orderByRaw("CASE WHEN ended_at IS NULL OR ended_at > NOW() THEN 0 ELSE 1 END")->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString()]);
-})->middleware('auth')->name('leader.history');
+})->middleware(['auth', 'approved', 'role:leader'])->name('leader.history');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
@@ -112,21 +112,21 @@ Route::get('/register', [AuthController::class, 'showRegister'])->name('register
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'approved'])->group(function () {
     Route::get('/settings', function () {
         /** @var User|null $user */
         $user = Auth::user();
         abort_unless($user?->isSuperAdmin(), 403);
         return app(SettingsController::class)->index();
-    })->name('settings');
-    Route::get('/admin/reports/pdf', [ReportController::class, 'exportPdf'])->name('admin.reports.pdf');
-    Route::get('/admin/reports/word', [ReportController::class, 'exportWord'])->name('admin.reports.word');
+    })->middleware('role:admin')->name('settings');
+    Route::get('/admin/reports/pdf', [ReportController::class, 'exportPdf'])->middleware('role:admin')->name('admin.reports.pdf');
+    Route::get('/admin/reports/word', [ReportController::class, 'exportWord'])->middleware('role:admin')->name('admin.reports.word');
     Route::get('/admin/approvals', function () {
         /** @var User $user */
         $user = Auth::user();
         abort_unless($user->isSuperAdmin(), 403);
         return view('approvals', ['pendingUsers' => User::whereIn('role', ['leader', 'admin'])->where('approval_status', 'pending')->latest()->get()]);
-    })->name('admin.approvals');
+    })->middleware('role:admin')->name('admin.approvals');
     Route::post('/admin/approvals/{user}', function (Request $request, User $user) {
         /** @var User $admin */
         $admin = Auth::user();
@@ -135,7 +135,7 @@ Route::middleware('auth')->group(function () {
         return $request->expectsJson()
             ? response()->json(['approved' => true, 'user_id' => $user->id])
             : back()->with('status', $user->name . ' is now approved.');
-    })->name('admin.approvals.approve');
+    })->middleware('role:admin')->name('admin.approvals.approve');
     Route::delete('/admin/approvals/{user}', function (Request $request, User $user) {
         /** @var User $admin */
         $admin = Auth::user();
@@ -144,10 +144,10 @@ Route::middleware('auth')->group(function () {
         return $request->expectsJson()
             ? response()->json(['declined' => true, 'user_id' => $user->id])
             : back()->with('status', $user->name . ' has been declined and removed.');
-    })->name('admin.approvals.decline');
+    })->middleware('role:admin')->name('admin.approvals.decline');
 });
 
-Route::prefix('api')->middleware('auth')->group(function () {
+Route::prefix('api')->middleware(['auth', 'approved'])->group(function () {
     Route::get('/attendance/dashboard', [AttendanceController::class, 'dashboard']);
     Route::get('/admin/dashboard', [AttendanceController::class, 'adminDashboard']);
     Route::post('/attendance/sessions', [AttendanceController::class, 'start']);

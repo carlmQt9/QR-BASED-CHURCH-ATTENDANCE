@@ -2,6 +2,50 @@ import './bootstrap';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
+// Force all selects to be proper dropdowns, not radio button interfaces
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove any radio button interfaces and ensure selects are visible
+    const selectElements = document.querySelectorAll('select');
+    selectElements.forEach(select => {
+        // Ensure proper dropdown styling
+        select.style.appearance = 'none';
+        select.style.webkitAppearance = 'none';
+        select.style.mozAppearance = 'none';
+        
+        // Hide any sibling radio button groups
+        const parent = select.parentElement;
+        const radioGroups = parent.querySelectorAll('.radio-group, .choice-group, .radio-options');
+        radioGroups.forEach(group => group.style.display = 'none');
+    });
+    
+    // Remove any radio button interfaces that might be created dynamically
+    const radioInterfaces = document.querySelectorAll('[data-radio-group], .radio-list, .choice-list');
+    radioInterfaces.forEach(iface => iface.style.display = 'none');
+});
+
+// Watch for dynamically added elements
+const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+            if (node.nodeType === 1) { // Element node
+                // Check for select elements
+                const selects = node.tagName === 'SELECT' ? [node] : node.querySelectorAll?.('select') || [];
+                selects.forEach(select => {
+                    select.style.appearance = 'none';
+                    select.style.webkitAppearance = 'none';
+                    select.style.mozAppearance = 'none';
+                });
+                
+                // Hide any radio button interfaces
+                const radioInterfaces = node.classList?.contains('radio-group') ? [node] : node.querySelectorAll?.('.radio-group, .choice-group, .radio-options') || [];
+                radioInterfaces.forEach(iface => iface.style.display = 'none');
+            }
+        });
+    });
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+
 // ─── Modal references ─────────────────────────────────────────────────────────
 const scannerModal   = document.querySelector('#scanner-modal');
 const memberModal    = document.querySelector('#member-modal');

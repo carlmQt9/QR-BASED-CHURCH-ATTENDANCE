@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropdown Test</title>
+    <link rel="stylesheet" href="/build/assets/app-D7l0oKX9.css">
+</head>
+<body>
+    <div style="padding: 40px; max-width: 600px; margin: 0 auto;">
+        <h1>Dropdown Test Page</h1>
+        
+        <h2>Registration Role Selection</h2>
+        <label style="display: grid; gap: 7px; color: #767672; font: 10px 'DM Mono', monospace; text-transform: uppercase;">
+            Your role
+            <select name="role" required>
+                <option value="">Choose your role</option>
+                <option value="leader">Attendance leader</option>
+                <option value="admin">Super admin</option>
+            </select>
+        </label>
+
+        <h2 style="margin-top: 30px;">Membership Group Selection</h2>
+        <label style="display: grid; gap: 7px; color: #767672; font: 10px 'DM Mono', monospace; text-transform: uppercase;">
+            Membership group
+            <select>
+                <option>Member</option>
+                <option>Mentor</option>
+                <option>Youth Leader</option>
+                <option>Pastor</option>
+                <option>Elder</option>
+                <option>Visitor</option>
+            </select>
+        </label>
+
+        <h2 style="margin-top: 30px;">Report Period Selection</h2>
+        <label style="display: grid; gap: 7px; color: #767672; font: 10px 'DM Mono', monospace; text-transform: uppercase;">
+            Period
+            <select name="period">
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+            </select>
+        </label>
+
+        <h2 style="margin-top: 30px;">Session Form</h2>
+        <div class="session-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 17px;">
+            <label style="display: grid; gap: 8px; color: #767672; text-transform: uppercase; font: 10px 'DM Mono', monospace;">
+                Gathering type
+                <select name="type" required>
+                    <option>Sunday worship</option>
+                    <option>Prayer meeting</option>
+                    <option>Youth fellowship</option>
+                </select>
+            </label>
+        </div>
+    </div>
+    <script src="/build/assets/app-BjmKdZHh.js"></script>
+</body>
+</html>
