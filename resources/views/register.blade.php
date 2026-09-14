@@ -6,6 +6,28 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Create account / Gather</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- EMERGENCY DROPDOWN FIX - Remove after assets work -->
+    <style>
+        select {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            background: #fff !important;
+            border: 1px solid #ddd !important;
+            border-radius: 6px !important;
+            padding: 14px 40px 14px 14px !important;
+            font: 11px 'Manrope', sans-serif !important;
+            color: #111 !important;
+            width: 100% !important;
+            cursor: pointer !important;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 14px center !important;
+            background-size: 16px !important;
+        }
+        select:hover { border-color: #999 !important; }
+        select:focus { outline: 2px solid #2563eb !important; outline-offset: 2px !important; border-color: #2563eb !important; }
+    </style>
 </head>
 <body class="auth-body">
     <main class="auth-shell">

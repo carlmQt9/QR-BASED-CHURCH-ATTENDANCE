@@ -63,7 +63,7 @@
         <tr>
             <td>{{ $i + 1 }}</td>
             <td>{{ $record->member->name }}</td>
-            <td>{{ $record->member->membership_group ?: '—' }}</td>
+            <td>{{ $record->member->membership_group ?? '—' }}</td>
             <td>{{ $record->session->name }}</td>
             <td>{{ $record->session->type }}</td>
             <td>{{ $record->checked_in_at->format('d M Y, h:i A') }}</td>

@@ -1,150 +1,234 @@
-/* Fix dropdown styling to show proper select dropdowns instead of radio button interfaces */
+/*
+ * Dropdown fixes — makes every <select> look like a proper dropdown
+ * on all platforms including iOS Safari and Android Chrome.
+ *
+ * Key: appearance:none must be paired with an explicit background-image
+ * arrow and correct padding. iOS ignores JS-applied styles so this must
+ * be pure CSS.
+ */
 
-/* Ensure all select elements look like proper dropdowns */
-select {
-    appearance: none !important;
+select,
+select.form-select {
+    /* Remove native OS picker chrome on all platforms */
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
-    background: #fff !important;
-    border: 1px solid #e7e7e3 !important;
-    border-radius: 6px !important;
-    padding: 12px 35px 12px 12px !important;
-    font: 11px 'Manrope', sans-serif !important;
-    color: #111 !important;
-    cursor: pointer !important;
-    position: relative !important;
-    display: block !important;
-    width: 100% !important;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 12px center !important;
-    background-size: 16px !important;
-}
-
-select:hover {
-    border-color: #999 !important;
-}
-
-select:focus {
-    outline: 2px solid #2563eb !important;
-    outline-offset: 2px !important;
-    border-color: #2563eb !important;
-}
-
-/* Fix auth form selects specifically */
-.auth-form-wrap select {
     appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    background: #fff !important;
-    border: 1px solid #ddd !important;
-    border-radius: 6px !important;
-    padding: 14px 40px 14px 14px !important;
-    font: 11px 'Manrope', sans-serif !important;
-    color: #111 !important;
-    width: 100% !important;
-    cursor: pointer !important;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 14px center !important;
-    background-size: 16px !important;
-}
 
-/* Fix member modal selects */
-.member-form select {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    background: #fff !important;
-    border: 1px solid #e7e7e3 !important;
-    border-radius: 6px !important;
-    padding: 11px 35px 11px 11px !important;
-    font: 11px 'Manrope', sans-serif !important;
-    color: #111 !important;
-    cursor: pointer !important;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 11px center !important;
-    background-size: 16px !important;
-}
-
-/* Fix report toolbar selects */
-.report-toolbar select {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    background: #fafaf8 !important;
-    border: 1px solid #e7e7e3 !important;
-    border-radius: 6px !important;
-    padding: 10px 35px 10px 10px !important;
-    font: 11px 'Manrope', sans-serif !important;
-    color: #111 !important;
-    cursor: pointer !important;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    /* Custom arrow via inline SVG data URI */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
     background-repeat: no-repeat !important;
     background-position: right 10px center !important;
-    background-size: 16px !important;
-}
+    background-size: 16px 16px !important;
 
-/* Remove any radio button styling that might exist */
-.form-options,
-.radio-options,
-.choice-list,
-.option-list {
-    display: none !important;
-}
+    /* Spacing so text doesn't overlap the arrow */
+    padding-right: 36px !important;
 
-/* Hide any custom radio button interfaces */
-.custom-radio,
-.radio-group,
-.radio-button,
-.choice-button {
-    display: none !important;
-}
+    /* Prevent iOS from adding a blue tint on tap */
+    -webkit-tap-highlight-color: transparent !important;
 
-/* Override any dark modal radio button styling */
-.modal select,
-.modal-backdrop select {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    background: #fff !important;
-    border: 1px solid #ddd !important;
-    border-radius: 6px !important;
-    padding: 12px 35px 12px 12px !important;
-    font: 11px 'Manrope', sans-serif !important;
-    color: #111 !important;
+    /* Ensure a visible cursor */
     cursor: pointer !important;
-    display: block !important;
+}
+
+/* Auth form — register / login */
+.auth-form-wrap select,
+.auth-panel select {
+    background-color: #fff !important;
+    border: 1px solid #d0d0cc !important;
+    border-radius: 6px !important;
+    padding: 13px 36px 13px 13px !important;
+    font-size: 13px !important;
+    color: #111 !important;
     width: 100% !important;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 12px center !important;
-    background-size: 16px !important;
+    display: block !important;
+    line-height: 1.4 !important;
 }
 
-/* Force override any radio button lists with actual select dropdowns */
-div[data-radio-group],
-.radio-list,
-.choice-group {
-    display: none !important;
+/* App / dashboard selects */
+.session-form select,
+.report-toolbar select,
+.panel-heading select,
+.directory-toolbar select {
+    background-color: #fafaf8 !important;
+    border: 1px solid #e7e7e3 !important;
+    border-radius: 6px !important;
+    padding: 10px 36px 10px 11px !important;
+    font-size: 11px !important;
+    color: #111 !important;
 }
 
-/* Ensure select containers don't have radio button styling */
-label:has(select) {
-    display: grid !important;
-    gap: 7px !important;
+/* Modal selects (dark background modals) */
+.modal select,
+#member-group {
+    background-color: #fff !important;
+    border: 1px solid #d0d0cc !important;
+    border-radius: 6px !important;
+    padding: 11px 36px 11px 11px !important;
+    font-size: 11px !important;
+    color: #111 !important;
+    width: 100% !important;
 }
 
-/* Mobile responsive fixes */
+/* Scanner modal select is on a dark background */
+#manual-attendance-form select,
+.scanner-roster select {
+    background-color: #1e293b !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+    border: 1px solid #334155 !important;
+    border-radius: 5px !important;
+    color: #fff !important;
+    padding: 9px 30px 9px 9px !important;
+    font-size: 11px !important;
+}
+
+/* Focus state for accessibility */
+select:focus {
+    outline: 2px solid #2563eb !important;
+    outline-offset: 1px !important;
+}
+
+/* Mobile — make touch targets taller */
 @media (max-width: 680px) {
     select {
-        padding: 12px 30px 12px 12px !important;
-        background-size: 14px !important;
+        min-height: 44px !important;
+        font-size: 16px !important; /* prevents iOS zoom-on-focus */
     }
-    
-    .auth-form-wrap select {
-        padding: 12px 35px 12px 12px !important;
-        background-size: 14px !important;
+
+    .auth-form-wrap select,
+    .auth-panel select {
+        font-size: 16px !important;
+        padding: 14px 40px 14px 14px !important;
+    }
+}
+
+/* In-page dropdown replacement keeps mobile browsers from opening their native picker. */
+.custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select > select[data-custom-select] {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.custom-select-button {
+    align-items: center;
+    background: #fafaf8;
+    border: 1px solid #e7e7e3;
+    border-radius: 6px;
+    color: #111;
+    cursor: pointer;
+    display: flex;
+    font: 11px 'Manrope', sans-serif;
+    justify-content: space-between;
+    min-height: 38px;
+    padding: 10px 36px 10px 11px;
+    position: relative;
+    text-align: left;
+    width: 100%;
+}
+
+.custom-select-button::after {
+    border-bottom: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    content: '';
+    height: 7px;
+    opacity: .65;
+    position: absolute;
+    right: 14px;
+    top: 13px;
+    transform: rotate(45deg);
+    transition: transform .15s ease;
+    width: 7px;
+}
+
+.custom-select.is-open .custom-select-button::after {
+    top: 16px;
+    transform: rotate(225deg);
+}
+
+.custom-select-button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+}
+
+.custom-select-list {
+    background: #fff;
+    border: 1px solid #d0d0cc;
+    border-radius: 6px;
+    box-shadow: 0 10px 24px #1112;
+    display: none;
+    left: 0;
+    list-style: none;
+    margin: 4px 0 0;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+}
+
+.custom-select.is-open .custom-select-list {
+    display: block;
+}
+
+.custom-select-option {
+    border-radius: 4px;
+    color: #222;
+    cursor: pointer;
+    font: 12px 'Manrope', sans-serif;
+    padding: 11px 12px;
+}
+
+.custom-select-option:hover,
+.custom-select-option[aria-selected='true'] {
+    background: #f1f1ed;
+}
+
+#manual-attendance-form .custom-select-button,
+.scanner-roster .custom-select-button {
+    background: #1e293b;
+    border-color: #334155;
+    color: #fff;
+}
+
+#manual-attendance-form .custom-select-list,
+.scanner-roster .custom-select-list {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+#manual-attendance-form .custom-select-option,
+.scanner-roster .custom-select-option {
+    color: #fff;
+}
+
+#manual-attendance-form .custom-select-option:hover,
+#manual-attendance-form .custom-select-option[aria-selected='true'],
+.scanner-roster .custom-select-option:hover,
+.scanner-roster .custom-select-option[aria-selected='true'] {
+    background: #334155;
+}
+
+@media (max-width: 680px) {
+    .custom-select-button {
+        font-size: 16px;
+        min-height: 44px;
+        padding: 12px 40px 12px 14px;
+    }
+
+    .custom-select-option {
+        font-size: 15px;
+        padding: 13px 14px;
     }
 }

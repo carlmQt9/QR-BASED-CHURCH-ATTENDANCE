@@ -177,17 +177,32 @@ Route::prefix('api')->middleware(['auth', 'approved'])->group(function () {
     Route::get('/users/search', function (Request $request) {
         $q = trim($request->query('q', ''));
         if (!$q) return response()->json([]);
+        
+        // Check if membership_group column exists
+        $userColumns = ['id', 'name', 'email', 'role', 'created_at'];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'membership_group')) {
+                $userColumns[] = 'membership_group';
+            }
+        } catch (\Exception $e) {
+            // Column doesn't exist, continue without it
+        }
+        
         $users = User::whereIn('role', ['member', 'leader', 'admin'])
-            ->where(function ($query) use ($q) {
+            ->where(function ($query) use ($q, $userColumns) {
                 $query->where('name', 'like', "%{$q}%")
-                      ->orWhere('email', 'like', "%{$q}%")
-                      ->orWhere('membership_group', 'like', "%{$q}%");
+                      ->orWhere('email', 'like', "%{$q}%");
+                      
+                // Only add membership_group search if column exists
+                if (in_array('membership_group', $userColumns)) {
+                    $query->orWhere('membership_group', 'like', "%{$q}%");
+                }
             })
             ->whereNull('deleted_at')
             ->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 ELSE 3 END")
             ->orderBy('name')
             ->limit(10)
-            ->get(['id', 'name', 'email', 'role', 'membership_group', 'created_at']);
+            ->get($userColumns);
 
         // For each result, compute which page they appear on in the users directory
         $perPage = 7;
@@ -199,14 +214,20 @@ Route::prefix('api')->middleware(['auth', 'approved'])->group(function () {
         return response()->json($users->map(function ($u) use ($allUserIds, $perPage) {
             $position = $allUserIds->search($u->id);
             $page = $position !== false ? (int) floor($position / $perPage) + 1 : 1;
+            
+            // Use the new membership_group_display attribute
+            $label = $u->role === 'admin' ? 'Admin' : 
+                    ($u->role === 'leader' ? 'Leader' : 
+                    ($u->membership_group ?? 'Member'));
+            
             return [
                 'id'               => $u->id,
                 'name'             => $u->name,
                 'email'            => $u->email,
                 'role'             => $u->role,
-                'membership_group' => $u->membership_group,
+                'membership_group' => $u->membership_group ?? null,
                 'since'            => $u->created_at?->format('Y'),
-                'label'            => $u->role === 'admin' ? 'Admin' : ($u->role === 'leader' ? 'Leader' : ($u->membership_group ?: 'Member')),
+                'label'            => $label,
                 'page'             => $page,
             ];
         }));

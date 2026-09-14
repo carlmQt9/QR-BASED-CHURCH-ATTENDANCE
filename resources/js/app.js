@@ -2,50 +2,6 @@ import './bootstrap';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 
-// Force all selects to be proper dropdowns, not radio button interfaces
-document.addEventListener('DOMContentLoaded', function() {
-    // Remove any radio button interfaces and ensure selects are visible
-    const selectElements = document.querySelectorAll('select');
-    selectElements.forEach(select => {
-        // Ensure proper dropdown styling
-        select.style.appearance = 'none';
-        select.style.webkitAppearance = 'none';
-        select.style.mozAppearance = 'none';
-        
-        // Hide any sibling radio button groups
-        const parent = select.parentElement;
-        const radioGroups = parent.querySelectorAll('.radio-group, .choice-group, .radio-options');
-        radioGroups.forEach(group => group.style.display = 'none');
-    });
-    
-    // Remove any radio button interfaces that might be created dynamically
-    const radioInterfaces = document.querySelectorAll('[data-radio-group], .radio-list, .choice-list');
-    radioInterfaces.forEach(iface => iface.style.display = 'none');
-});
-
-// Watch for dynamically added elements
-const observer = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
-        mutation.addedNodes.forEach(node => {
-            if (node.nodeType === 1) { // Element node
-                // Check for select elements
-                const selects = node.tagName === 'SELECT' ? [node] : node.querySelectorAll?.('select') || [];
-                selects.forEach(select => {
-                    select.style.appearance = 'none';
-                    select.style.webkitAppearance = 'none';
-                    select.style.mozAppearance = 'none';
-                });
-                
-                // Hide any radio button interfaces
-                const radioInterfaces = node.classList?.contains('radio-group') ? [node] : node.querySelectorAll?.('.radio-group, .choice-group, .radio-options') || [];
-                radioInterfaces.forEach(iface => iface.style.display = 'none');
-            }
-        });
-    });
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
 // ─── Modal references ─────────────────────────────────────────────────────────
 const scannerModal   = document.querySelector('#scanner-modal');
 const memberModal    = document.querySelector('#member-modal');
@@ -135,6 +91,86 @@ function appUrl(path) {
     const base = document.body.dataset.appUrl || window.location.origin;
     return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 }
+
+function initCustomSelects() {
+    document.querySelectorAll('select:not([data-custom-select])').forEach(select => {
+        select.dataset.customSelect = 'true';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select';
+        wrapper.dataset.customSelectWrapper = 'true';
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'custom-select-button';
+        button.setAttribute('aria-haspopup', 'listbox');
+        button.setAttribute('aria-expanded', 'false');
+        button.textContent = select.options[select.selectedIndex]?.text || '';
+        wrapper.appendChild(button);
+
+        const list = document.createElement('ul');
+        list.className = 'custom-select-list';
+        list.setAttribute('role', 'listbox');
+        wrapper.appendChild(list);
+
+        const close = () => {
+            wrapper.classList.remove('is-open');
+            button.setAttribute('aria-expanded', 'false');
+        };
+
+        Array.from(select.options).forEach((option, index) => {
+            const item = document.createElement('li');
+            item.className = 'custom-select-option';
+            item.setAttribute('role', 'option');
+            item.textContent = option.text;
+            item.dataset.value = option.value;
+            item.setAttribute('aria-selected', option.selected ? 'true' : 'false');
+            item.addEventListener('click', () => {
+                select.selectedIndex = index;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                close();
+            });
+            list.appendChild(item);
+        });
+
+        const sync = () => {
+            button.textContent = select.options[select.selectedIndex]?.text || '';
+            list.querySelectorAll('.custom-select-option').forEach((item, index) => {
+                item.setAttribute('aria-selected', select.options[index]?.selected ? 'true' : 'false');
+            });
+        };
+
+        select.addEventListener('change', sync);
+        button.addEventListener('click', () => {
+            const open = wrapper.classList.toggle('is-open');
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        button.addEventListener('keydown', event => {
+            if (event.key === 'Escape') close();
+            if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                wrapper.classList.add('is-open');
+                button.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+
+    if (!window.customSelectOutsideClickBound) {
+        window.customSelectOutsideClickBound = true;
+        document.addEventListener('click', event => {
+            document.querySelectorAll('.custom-select.is-open').forEach(wrapper => {
+                if (!wrapper.contains(event.target)) {
+                    wrapper.classList.remove('is-open');
+                    wrapper.querySelector('.custom-select-button')?.setAttribute('aria-expanded', 'false');
+                }
+            });
+        });
+    }
+}
+
+initCustomSelects();
 
 // ─── Beep ─────────────────────────────────────────────────────────────────────
 function beep(hz, len = 0.12) {
@@ -1460,7 +1496,7 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
 });
 
 // ─── User directory live search ────────────────────────────────────────────────
-(function () {
+document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.querySelector('#user-search');
     if (!searchInput) return;
 
@@ -1579,7 +1615,8 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
         // Debounce API call
         debounceTimer = setTimeout(async () => {
             try {
-                const res = await fetch(appUrl(`/api/users/search?q=${encodeURIComponent(q)}`), {
+                const base = (document.body.dataset.appUrl || window.location.origin).replace(/\/$/, '');
+                const res = await fetch(`${base}/api/users/search?q=${encodeURIComponent(q)}`, {
                     headers: { Accept: 'application/json' },
                 });
                 if (!res.ok) return;
@@ -1651,4 +1688,4 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
             }, 300);
         }
     }
-})();
+}); 

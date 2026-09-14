@@ -45,7 +45,17 @@ class ReportController extends Controller
         };
         $end = now()->endOfDay();
 
-        $query = AttendanceRecord::with(['member:id,name,member_code,membership_group', 'session:id,name,type,location'])
+        // Check if membership_group column exists
+        $userColumns = ['id', 'name', 'member_code'];
+        try {
+            // Try to check if the column exists
+            \Illuminate\Support\Facades\Schema::hasColumn('users', 'membership_group');
+            $userColumns[] = 'membership_group';
+        } catch (\Exception $e) {
+            // Column doesn't exist, continue without it
+        }
+
+        $query = AttendanceRecord::with(['member:' . implode(',', $userColumns), 'session:id,name,type,location'])
             ->whereBetween('checked_in_at', [$start, $end])
             ->whereHas('session')
             ->when($sessionId, fn ($query) => $query->where('attendance_session_id', $sessionId))

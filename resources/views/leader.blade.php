@@ -7,6 +7,205 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Leader dashboard / Gather</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- EMERGENCY DROPDOWN FIX - Remove after assets work -->
+    <style>
+        select {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            background: #fafaf8 !important;
+            border: 1px solid #e7e7e3 !important;
+            border-radius: 6px !important;
+            padding: 12px 35px 12px 12px !important;
+            font: 11px 'Manrope', sans-serif !important;
+            color: #111 !important;
+            cursor: pointer !important;
+            display: block !important;
+            width: 100% !important;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 12px center !important;
+            background-size: 16px !important;
+        }
+        select:hover { border-color: #999 !important; }
+        select:focus { outline: 2px solid #2563eb !important; outline-offset: 2px !important; border-color: #2563eb !important; }
+        .modal select, #member-group, #manual-member { 
+            background: #fff !important; 
+            border: 1px solid #ddd !important;
+            padding: 11px 35px 11px 11px !important;
+        }
+        
+        /* Fix duration control buttons */
+        .duration-control {
+            height: 39px !important;
+            border: 1px solid #e7e7e3 !important;
+            border-radius: 6px !important;
+            background: #fafaf8 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            overflow: hidden !important;
+        }
+        .duration-control button {
+            height: 100% !important;
+            width: 38px !important;
+            background: #fff !important;
+            border: none !important;
+            border-right: 1px solid #e7e7e3 !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            transition: background 0.2s !important;
+        }
+        .duration-control button:last-child {
+            border-left: 1px solid #e7e7e3 !important;
+            border-right: 0 !important;
+        }
+        .duration-control button:hover {
+            background: #f0f0f0 !important;
+        }
+        .duration-control strong {
+            color: #111 !important;
+            font: 12px 'DM Mono', monospace !important;
+            text-transform: none !important;
+            padding: 0 10px !important;
+        }
+        
+        /* Fix manual member search in scanner */
+        #manual-attendance-form {
+            display: grid !important;
+            gap: 8px !important;
+        }
+        #manual-attendance-form select {
+            min-width: 0 !important;
+            padding: 9px 30px 9px 9px !important;
+            border: 1px solid #334155 !important;
+            border-radius: 5px !important;
+            background: #1e293b !important;
+            color: #fff !important;
+            font-size: 11px !important;
+        }
+        #manual-attendance-form .button {
+            min-height: 35px !important;
+            justify-content: center !important;
+        }
+    </style>
+    
+    <!-- Emergency JavaScript fixes -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fix duration controls
+        function setupDurationControls() {
+            const durationValue = document.querySelector('#duration-value');
+            const durationLabel = document.querySelector('#duration-label');
+            const durationButtons = document.querySelectorAll('[data-duration]');
+            
+            function formatDuration(minutes) {
+                const h = Math.floor(minutes / 60);
+                const m = minutes % 60;
+                if (h === 0) return m + ' min';
+                if (m === 0) return h + ' hr';
+                return h + ' hr ' + m + ' min';
+            }
+            
+            function updateDuration(change) {
+                if (!durationValue || !durationLabel) return;
+                const current = parseInt(durationValue.value) || 90;
+                const newValue = Math.max(15, Math.min(720, current + change));
+                durationValue.value = newValue;
+                durationLabel.textContent = formatDuration(newValue);
+            }
+            
+            // Set initial label
+            if (durationValue && durationLabel) {
+                durationLabel.textContent = formatDuration(parseInt(durationValue.value) || 90);
+            }
+            
+            // Add click handlers
+            durationButtons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const change = parseInt(this.dataset.duration) || 0;
+                    updateDuration(change);
+                });
+            });
+        }
+        
+        // Fix manual attendance form
+        function setupManualAttendance() {
+            const form = document.querySelector('#manual-attendance-form');
+            if (!form) return;
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const memberSelect = this.querySelector('#manual-member');
+                const button = this.querySelector('button[type="submit"]');
+                
+                if (!memberSelect?.value || !button) return;
+                
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Marking...';
+                
+                try {
+                    const sessionId = document.body.dataset.sessionId || 
+                                   document.querySelector('[data-session-id]')?.dataset.sessionId;
+                    
+                    const response = await fetch('/api/attendance/manual-check-ins', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            member_id: memberSelect.value
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success' || data.status === 'already_attended') {
+                        memberSelect.value = '';
+                        // Refresh attendance list
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Could not mark attendance');
+                    }
+                } catch (error) {
+                    console.error('Manual attendance error:', error);
+                    alert('Failed to mark attendance. Please try again.');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            });
+        }
+        
+        // Initialize controls
+        setupDurationControls();
+        setupManualAttendance();
+        
+        // Re-initialize when modals open
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const target = mutation.target;
+                    if (target.classList.contains('open')) {
+                        setTimeout(() => {
+                            setupManualAttendance();
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        const modals = document.querySelectorAll('.modal-backdrop');
+        modals.forEach(modal => {
+            observer.observe(modal, { attributes: true });
+        });
+    });
+    </script>
 </head>
 <body data-auto-open-scanner="{{ session('status') ? 'true' : 'false' }}" data-session-id="{{ $activeSession?->id }}" data-app-url="{{ url('/') }}">
 {{-- Success notification --}}

@@ -7,6 +7,35 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Gather / Church attendance</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- EMERGENCY DROPDOWN FIX - Remove after assets work -->
+    <style>
+        select {
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            background: #fafaf8 !important;
+            border: 1px solid #e7e7e3 !important;
+            border-radius: 6px !important;
+            padding: 10px 35px 10px 10px !important;
+            font: 11px 'Manrope', sans-serif !important;
+            color: #111 !important;
+            cursor: pointer !important;
+            display: block !important;
+            width: 100% !important;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 10px center !important;
+            background-size: 16px !important;
+        }
+        select:hover { border-color: #999 !important; }
+        select:focus { outline: 2px solid #2563eb !important; outline-offset: 2px !important; border-color: #2563eb !important; }
+        .modal select, #member-group { 
+            background: #fff !important; 
+            border: 1px solid #ddd !important;
+            padding: 11px 35px 11px 11px !important;
+        }
+    </style>
+    
 </head>
 <body class="admin-dashboard dashboard-view-{{ $currentView }} {{ $sessions->isEmpty() ? 'empty-dashboard' : '' }}" data-session-id="{{ $activeSession?->id }}" data-app-url="{{ url('/') }}" data-current-view="{{ $currentView }}" data-member-count="{{ $memberCount }}">
 {{-- Success notification --}}
@@ -59,7 +88,7 @@
                                 <strong>{{ $member->name }}</strong>
                             </div>
                             <span>Member since {{ $member->created_at->format('Y') }}</span>
-                            <span class="tag role-tag">{{ $member->isSuperAdmin() ? 'Admin' : ($member->role === 'leader' ? 'Leader' : ($member->membership_group ?: 'Member')) }}</span>
+                            <span class="tag role-tag">{{ $member->membership_group_display }}</span>
                             <div class="row-actions">
                                 @if ($member->role === 'member')
                                     <button class="row-action view-qr" data-name="{{ $member->name }}" data-code="{{ $member->member_code }}" data-token="{{ $member->qr_token }}" type="button" aria-label="View member QR code" title="View member QR code">

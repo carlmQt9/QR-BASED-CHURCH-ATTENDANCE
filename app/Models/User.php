@@ -52,6 +52,33 @@ class User extends Authenticatable
     }
 
     /**
+     * Get membership group display text, handling missing column gracefully
+     */
+    public function getMembershipGroupDisplayAttribute()
+    {
+        // Check if we have the membership_group attribute
+        if (isset($this->attributes['membership_group']) && !empty($this->attributes['membership_group'])) {
+            return $this->attributes['membership_group'];
+        }
+        
+        // Fallback based on role
+        return match($this->role) {
+            'admin' => 'Admin',
+            'leader' => 'Leader', 
+            default => 'Member'
+        };
+    }
+
+    /**
+     * Get membership group, handling cases where column doesn't exist
+     */
+    public function getMembershipGroupAttribute($value)
+    {
+        // If the column doesn't exist or is null, return null gracefully
+        return $value;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
