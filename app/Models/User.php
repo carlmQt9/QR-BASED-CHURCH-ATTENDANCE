@@ -23,6 +23,7 @@ class User extends Authenticatable
         'name',
         'email',
         'role',
+        'membership_group',
         'approval_status',
         'approved_at',
         'member_code',

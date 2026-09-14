@@ -27,4 +27,13 @@ class AttendanceSession extends Model
     {
         return $this->hasMany(AttendanceRecord::class);
     }
+
+    public function durationForHumans(): string
+    {
+        $h = intdiv($this->duration_minutes, 60);
+        $m = $this->duration_minutes % 60;
+        if ($h === 0) return "{$m} min";
+        if ($m === 0) return "{$h} hr";
+        return "{$h} hr {$m} min";
+    }
 }

@@ -20,13 +20,16 @@ Route::get('/dashboard', function () {
     /** @var User|null $user */
     $user = Auth::user();
     abort_unless($user?->isApproved(), 403);
+
     if ($user->role === 'leader') {
+        $activeSession = AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->where(function ($query) {
+            $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
+        })->orderByDesc('started_at')->orderByDesc('id')->first();
+
         return view('leader', [
-            'members' => User::where('role', 'member')->orderBy('name')->get(['id', 'name']), 
-            'sessions' => AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->orderByDesc('started_at')->orderByDesc('id')->get(), 
-            'activeSession' => AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->where(function ($query) {
-                $query->whereNull('ended_at')->orWhere('ended_at', '>', now());
-            })->orderByDesc('started_at')->orderByDesc('id')->first(),
+            'members' => User::where('role', 'member')->orderBy('name')->get(['id', 'name']),
+            'sessions' => AttendanceSession::with('records.member')->whereNull('deleted_at')->where('started_by', $user->id)->orderByRaw("CASE WHEN ended_at IS NULL OR ended_at > NOW() THEN 0 ELSE 1 END")->orderByDesc('started_at')->orderByDesc('id')->get(),
+            'activeSession' => $activeSession,
             'gatheringTypes' => Setting::get('gathering_types', ['Sunday worship', 'Prayer meeting', 'Youth fellowship']),
             'membershipGroups' => Setting::get('membership_groups', ['General congregation', 'Volunteer team', 'Youth ministry'])
         ]);
@@ -39,8 +42,8 @@ Route::get('/dashboard', function () {
         ->latest()
         ->paginate(7)
         ->withQueryString();
-    $allSessions = AttendanceSession::with('records.member', 'leader')->orderByDesc('started_at')->orderByDesc('id')->get();
-    $sessions = AttendanceSession::with('records.member', 'leader')->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString();
+    $allSessions = AttendanceSession::with('records.member', 'leader')->orderByRaw("CASE WHEN ended_at IS NULL OR ended_at > NOW() THEN 0 ELSE 1 END")->orderByDesc('started_at')->orderByDesc('id')->get();
+    $sessions = AttendanceSession::with('records.member', 'leader')->orderByRaw("CASE WHEN ended_at IS NULL OR ended_at > NOW() THEN 0 ELSE 1 END")->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString();
     $archivedSessions = AttendanceSession::onlyTrashed()->with('records.member', 'leader')->latest('deleted_at')->get();
     $archivedUsers = User::onlyTrashed()->orderBy('name')->get();
     $todaySessions = $allSessions->filter(fn ($session) => $session->started_at->isToday())->take(5);
@@ -100,7 +103,7 @@ Route::get('/leader/history', function () {
     abort_unless($user?->role === 'leader' && $user->isApproved(), 403);
     $leaderId = $user->getAuthIdentifier();
 
-    return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->whereNull('deleted_at')->where('started_by', $leaderId)->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString()]);
+    return view('leader-history', ['sessions' => AttendanceSession::with(['records.member', 'leader'])->withCount('records')->whereNull('deleted_at')->where('started_by', $leaderId)->orderByRaw("CASE WHEN ended_at IS NULL OR ended_at > NOW() THEN 0 ELSE 1 END")->orderByDesc('started_at')->orderByDesc('id')->paginate(3)->withQueryString()]);
 })->middleware('auth')->name('leader.history');
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -170,5 +173,42 @@ Route::prefix('api')->middleware('auth')->group(function () {
         $user = $request->user();
         abort_unless($user?->isSuperAdmin(), 403);
         return app(SettingsController::class)->updateMembershipGroups($request);
+    });
+    Route::get('/users/search', function (Request $request) {
+        $q = trim($request->query('q', ''));
+        if (!$q) return response()->json([]);
+        $users = User::whereIn('role', ['member', 'leader', 'admin'])
+            ->where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                      ->orWhere('email', 'like', "%{$q}%")
+                      ->orWhere('membership_group', 'like', "%{$q}%");
+            })
+            ->whereNull('deleted_at')
+            ->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 ELSE 3 END")
+            ->orderBy('name')
+            ->limit(10)
+            ->get(['id', 'name', 'email', 'role', 'membership_group', 'created_at']);
+
+        // For each result, compute which page they appear on in the users directory
+        $perPage = 7;
+        $allUserIds = User::whereNull('deleted_at')
+            ->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 WHEN 'member' THEN 3 ELSE 4 END")
+            ->latest()
+            ->pluck('id');
+
+        return response()->json($users->map(function ($u) use ($allUserIds, $perPage) {
+            $position = $allUserIds->search($u->id);
+            $page = $position !== false ? (int) floor($position / $perPage) + 1 : 1;
+            return [
+                'id'               => $u->id,
+                'name'             => $u->name,
+                'email'            => $u->email,
+                'role'             => $u->role,
+                'membership_group' => $u->membership_group,
+                'since'            => $u->created_at?->format('Y'),
+                'label'            => $u->role === 'admin' ? 'Admin' : ($u->role === 'leader' ? 'Leader' : ($u->membership_group ?: 'Member')),
+                'page'             => $page,
+            ];
+        }));
     });
 });

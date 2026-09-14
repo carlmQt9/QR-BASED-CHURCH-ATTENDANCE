@@ -45,7 +45,7 @@ class ReportController extends Controller
         };
         $end = now()->endOfDay();
 
-        $query = AttendanceRecord::with(['member:id,name,member_code', 'session:id,name,type,location'])
+        $query = AttendanceRecord::with(['member:id,name,member_code,membership_group', 'session:id,name,type,location'])
             ->whereBetween('checked_in_at', [$start, $end])
             ->whereHas('session')
             ->when($sessionId, fn ($query) => $query->where('attendance_session_id', $sessionId))

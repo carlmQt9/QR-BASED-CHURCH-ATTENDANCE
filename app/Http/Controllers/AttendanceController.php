@@ -124,10 +124,10 @@ class AttendanceController extends Controller
     public function storeMember(Request $request): JsonResponse
     {
         abort_unless($request->user()?->isSuperAdmin(), 403);
-        $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'unique:users,email'], 'password' => ['nullable', 'string', 'min:8']]);
+        $validated = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'unique:users,email'], 'password' => ['nullable', 'string', 'min:8'], 'membership_group' => ['nullable', 'string', 'max:120']]);
         $member = User::create([...$validated, 'role' => 'member', 'member_code' => 'G-' . str_pad((string) ((User::max('id') ?? 0) + 1), 5, '0', STR_PAD_LEFT), 'qr_token' => (string) Str::uuid(), 'password' => $validated['password'] ?? Str::random(32)]);
 
-        return response()->json($member->only(['id', 'name', 'email', 'member_code', 'qr_token']), 201);
+        return response()->json($member->only(['id', 'name', 'email', 'member_code', 'qr_token', 'membership_group']), 201);
     }
 
     public function destroyMember(Request $request, User $member): JsonResponse

@@ -680,6 +680,11 @@ document.querySelector('#member-name')?.addEventListener('input', e => {
     if (p) p.textContent = e.target.value || 'New member';
 });
 
+document.querySelector('#member-group')?.addEventListener('change', e => {
+    const g = document.querySelector('#qr-member-group');
+    if (g) g.textContent = e.target.value;
+});
+
 document.querySelector('#generate-member')?.addEventListener('click', async () => {
     const btn = document.querySelector('#generate-member');
     const nameInput = document.querySelector('#member-name');
@@ -692,10 +697,11 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
     }
 
     setButtonLoading(btn, 'Generating...');
+    const groupInput = document.querySelector('#member-group');
     const res = await fetch(appUrl('/api/members'), {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
-        body: JSON.stringify({ name: nameInput.value, email: emailInput?.value || '' }),
+        body: JSON.stringify({ name: nameInput.value, email: emailInput?.value || '', membership_group: groupInput?.value || '' }),
     });
 
     if (res.ok) {
@@ -716,7 +722,7 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             row.dataset.memberId = m.id;
             row.innerHTML =
                 '<div class="member-cell"><div class="member-avatar"></div><strong></strong></div>' +
-                '<span></span><span class="tag role-tag">Member</span>' +
+                '<span></span><span class="tag role-tag"></span>' +
                 '<div class="row-actions">' +
                 '<button class="row-action view-qr" data-name="" data-code="" data-token="" type="button" aria-label="View member QR code" title="View member QR code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-2zM14 18h4"/></svg></button>' +
                 '<button class="row-action archive-user" data-url="/api/users/' + m.id + '/archive" type="button" aria-label="Archive user" title="Archive user"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16v10H4zM3 5.5h18v3H3zM9 12h6"/></svg></button>' +
@@ -725,6 +731,7 @@ document.querySelector('#generate-member')?.addEventListener('click', async () =
             row.querySelector('.member-avatar').textContent = m.name.split(' ').map(p => p[0]).join('').slice(0, 2);
             row.querySelector('strong').textContent         = m.name;
             row.querySelector('span:not(.tag)').textContent = `Member since ${new Date().getFullYear()}`;
+            row.querySelector('.role-tag').textContent      = m.membership_group || 'Member';
             row.querySelector('.view-qr').dataset.name  = m.name;
             row.querySelector('.view-qr').dataset.code  = m.member_code;
             row.querySelector('.view-qr').dataset.token = m.qr_token;
@@ -1261,15 +1268,30 @@ document.querySelectorAll('.logout-form').forEach(f =>
     f.addEventListener('submit', e => { e.preventDefault(); buildLogoutModal(f); }));
 
 // ─── Duration control ──────────────────────────────────────────────────────────
+function formatDuration(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} hr`;
+    return `${h} hr ${m} min`;
+}
+
 document.querySelectorAll('[data-duration]').forEach(btn =>
     btn.addEventListener('click', () => {
         const v = document.querySelector('#duration-value');
         const l = document.querySelector('#duration-label');
         if (!v || !l) return;
         const n = Math.max(15, Math.min(720, Number(v.value) + Number(btn.dataset.duration)));
-        v.value = n; l.textContent = `${n} min`;
+        v.value = n; l.textContent = formatDuration(n);
     })
 );
+
+// Set initial duration label on page load
+(function () {
+    const v = document.querySelector('#duration-value');
+    const l = document.querySelector('#duration-label');
+    if (v && l) l.textContent = formatDuration(Number(v.value));
+})();
 
 // ─── Auto-open scanner on session-just-started ─────────────────────────────────
 if (document.body.dataset.autoOpenScanner === 'true' && scannerModal)
@@ -1392,3 +1414,197 @@ document.querySelector('#save-membership-groups')?.addEventListener('click', asy
     
     if (!btn.classList.contains('is-loading')) btn.disabled = false;
 });
+
+// ─── User directory live search ────────────────────────────────────────────────
+(function () {
+    const searchInput = document.querySelector('#user-search');
+    if (!searchInput) return;
+
+    const cards   = document.querySelector('#member-cards');
+    const countEl = document.querySelector('#member-count');
+
+    // Build suggestion dropdown
+    const dropdown = document.createElement('ul');
+    dropdown.id = 'user-search-dropdown';
+    dropdown.setAttribute('role', 'listbox');
+    dropdown.style.cssText = [
+        'position:absolute',
+        'top:100%',
+        'left:0',
+        'right:0',
+        'background:#fff',
+        'border:1px solid #e5e5e5',
+        'border-top:none',
+        'border-radius:0 0 8px 8px',
+        'box-shadow:0 6px 18px rgba(0,0,0,.08)',
+        'list-style:none',
+        'margin:0',
+        'padding:4px 0',
+        'z-index:200',
+        'max-height:300px',
+        'overflow-y:auto',
+        'display:none',
+    ].join(';');
+
+    // Wrap the input so dropdown can position relative to it
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;flex:1';
+    searchInput.parentNode.insertBefore(wrap, searchInput);
+    wrap.appendChild(searchInput);
+    wrap.appendChild(dropdown);
+
+    function highlight(text, query) {
+        if (!query) return text;
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark style="background:#fde68a;border-radius:2px;padding:0 1px">$1</mark>');
+    }
+
+    function initials(name) {
+        return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    function renderDropdown(results, query) {
+        dropdown.innerHTML = '';
+
+        if (!results.length) {
+            const li = document.createElement('li');
+            li.style.cssText = 'padding:10px 14px;color:#888;font-size:13px';
+            li.textContent = 'No users found';
+            dropdown.appendChild(li);
+            dropdown.style.display = 'block';
+            return;
+        }
+
+        results.forEach(user => {
+            const li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            li.dataset.userId = user.id;
+            li.style.cssText = 'padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;transition:background .1s';
+            li.innerHTML =
+                `<span style="width:32px;height:32px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${initials(user.name)}</span>`
+                + `<span style="min-width:0">`
+                + `<strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${highlight(user.name, query)}</strong>`
+                + `<small style="color:#888">${highlight(user.label, query)}${user.email ? ' · ' + highlight(user.email, query) : ''}</small>`
+                + `</span>`;
+
+            li.addEventListener('mouseenter', () => li.style.background = '#f5f5f5');
+            li.addEventListener('mouseleave', () => li.style.background = '');
+            li.addEventListener('mousedown', e => {
+                e.preventDefault();
+                searchInput.value = user.name;
+                dropdown.style.display = 'none';
+
+                // Always navigate to the correct page with the user highlighted
+                const url = new URL(window.location.href);
+                url.searchParams.set('view', 'members');
+                url.searchParams.set('page', user.page || 1);
+                url.searchParams.set('search_user', user.id);
+                window.location.href = url.toString();
+            });
+
+            dropdown.appendChild(li);
+        });
+
+        dropdown.style.display = 'block';
+    }
+
+    let debounceTimer;
+    searchInput.addEventListener('input', e => {
+        const q = e.target.value.trim();
+        clearTimeout(debounceTimer);
+
+        if (!q) {
+            dropdown.style.display = 'none';
+            // Restore all rows
+            cards?.querySelectorAll('.directory-row').forEach(r => r.style.display = '');
+            if (countEl) countEl.textContent = `${cards?.querySelectorAll('.directory-row').length ?? 0} users`;
+            return;
+        }
+
+        // Also filter visible rows immediately for instant feedback
+        let visibleCount = 0;
+        cards?.querySelectorAll('.directory-row').forEach(row => {
+            const name  = row.querySelector('strong')?.textContent.toLowerCase() || '';
+            const role  = row.querySelector('.role-tag')?.textContent.toLowerCase() || '';
+            const match = name.includes(q.toLowerCase()) || role.includes(q.toLowerCase());
+            row.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+        if (countEl) countEl.textContent = `${visibleCount} result${visibleCount !== 1 ? 's' : ''}`;
+
+        // Debounce API call
+        debounceTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(appUrl(`/api/users/search?q=${encodeURIComponent(q)}`), {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                renderDropdown(data, q);
+                if (countEl) countEl.textContent = `${data.length} result${data.length !== 1 ? 's' : ''}`;
+            } catch (_) { /* silent */ }
+        }, 250);
+    });
+
+    searchInput.addEventListener('focus', e => {
+        if (e.target.value.trim()) e.target.dispatchEvent(new Event('input'));
+    });
+
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 160);
+    });
+
+    // Keyboard navigation
+    searchInput.addEventListener('keydown', e => {
+        const items = Array.from(dropdown.querySelectorAll('li[role="option"]'));
+        const active = dropdown.querySelector('li.kbd-active');
+        let idx = items.indexOf(active);
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            active?.classList.remove('kbd-active');
+            if (active) active.style.background = '';
+            idx = (idx + 1) % items.length;
+            items[idx].classList.add('kbd-active');
+            items[idx].style.background = '#f0f0f0';
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            active?.classList.remove('kbd-active');
+            if (active) active.style.background = '';
+            idx = (idx - 1 + items.length) % items.length;
+            items[idx].classList.add('kbd-active');
+            items[idx].style.background = '#f0f0f0';
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            (active || items[0])?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+            searchInput.value = '';
+            cards?.querySelectorAll('.directory-row').forEach(r => r.style.display = '');
+            if (countEl) countEl.textContent = `${cards?.querySelectorAll('.directory-row').length ?? 0} users`;
+        }
+    });
+
+    // If page loaded with search_user param, highlight that row
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetId = urlParams.get('search_user');
+    if (targetId && cards) {
+        const targetRow = cards.querySelector(`.directory-row[data-member-id="${targetId}"]`);
+        if (targetRow) {
+            // Pre-fill search box with the user's name
+            const userName = targetRow.querySelector('strong')?.textContent.trim() || '';
+            if (userName) searchInput.value = userName;
+
+            setTimeout(() => {
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetRow.style.outline = '2px solid #111';
+                targetRow.style.borderRadius = '8px';
+                targetRow.style.transition = 'outline .2s';
+                setTimeout(() => {
+                    targetRow.style.outline = '';
+                    targetRow.style.borderRadius = '';
+                }, 2500);
+            }, 300);
+        }
+    }
+})();
