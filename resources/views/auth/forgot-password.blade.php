@@ -10,7 +10,7 @@
     <main class="auth-shell">
         <section class="auth-intro">
             <a class="auth-brand" href="{{ route('login') }}"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>GATHER</strong></a>
-            <div class="intro-copy"><span class="section-kicker">Secure account recovery</span><h1>Come back<br><em>with confidence.</em></h1><p>We will send a secure password reset link to your account email.</p></div>
+            <div class="intro-copy"><span class="section-kicker">Secure account recovery</span><h1><span class="typing-line typing-line-first">Come back</span><span class="typing-line typing-line-second"><em>with confidence.</em></span></h1><p>We will send a secure password reset link to your account email.</p></div>
         </section>
         <section class="auth-panel">
             <div class="auth-panel-top"><span>Reset password</span><span class="secure-label">⌁ Secure access</span></div>
